@@ -31,7 +31,8 @@
     <!-- 5. App Bootstrapper (ES Module) -->
     <script type="module" src="../../assets/js/app.js"></script>
 
-    <!-- 6. Alpine.js CDN -->
+    <!-- 6. Alpine.js Initial Safety Bootstrapper & CDN -->
+    <script src="../../assets/js/config/alpine-init.js"></script>
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
@@ -43,8 +44,9 @@
       filterStatus: 'ALL',
       searchQuery: '',
       get mySchedules() {
-        const query = this.searchQuery.trim().toLowerCase();
-        return $store.clinic.therapistSchedules.filter(s => {
+        const list = $store.clinic?.therapistSchedules || [];
+        const query = (this.searchQuery || '').trim().toLowerCase();
+        return list.filter(s => {
           const matchStatus = (this.filterStatus === 'ALL') || (s.status === this.filterStatus);
           if (!matchStatus) return false;
           if (!query) return true;
@@ -56,13 +58,13 @@
         });
       },
       get countAll() {
-        return $store.clinic.therapistSchedules.length;
+        return ($store.clinic?.therapistSchedules || []).length;
       },
       get countCheckedIn() {
-        return $store.clinic.therapistSchedules.filter(s => s.status === 'CHECKED_IN').length;
+        return ($store.clinic?.therapistSchedules || []).filter(s => s.status === 'CHECKED_IN').length;
       },
       get countCompleted() {
-        return $store.clinic.therapistSchedules.filter(s => s.status === 'COMPLETED').length;
+        return ($store.clinic?.therapistSchedules || []).filter(s => s.status === 'COMPLETED').length;
       }
     }"
   >

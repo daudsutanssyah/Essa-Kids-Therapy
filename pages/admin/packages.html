@@ -24,7 +24,8 @@
     <!-- 5. App Bootstrapper (ES Module) -->
     <script type="module" src="../../assets/js/app.js"></script>
 
-    <!-- 6. Alpine.js CDN -->
+    <!-- 6. Alpine.js Initial Safety Bootstrapper & CDN -->
+    <script src="../../assets/js/config/alpine-init.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
 </head>
 <body class="bg-base-200 font-sans text-base-content antialiased min-h-screen"
@@ -41,18 +42,22 @@
               tierId: 'PKG_REG_4'
           },
           get filteredPackages() {
-              return $store.clinic.enrichedPackages.filter(pkg => {
-                  const matchQuery = pkg.patientName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                     pkg.patientNickname.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                     pkg.id.toLowerCase().includes(this.searchQuery.toLowerCase());
+              const list = $store.clinic?.enrichedPackages || [];
+              const query = (this.searchQuery || '').toLowerCase().trim();
+              return list.filter(pkg => {
+                  const patientName = (pkg.patientName || '').toLowerCase();
+                  const patientNickname = (pkg.patientNickname || '').toLowerCase();
+                  const id = (pkg.id || '').toLowerCase();
+                  const matchQuery = !query || patientName.includes(query) || patientNickname.includes(query) || id.includes(query);
                   const matchService = this.filterService === 'ALL' || pkg.serviceId === this.filterService;
                   const matchHealth = this.filterHealth === 'ALL' || pkg.quotaHealth === this.filterHealth;
                   return matchQuery && matchService && matchHealth;
               });
           },
           openNewPackageModal() {
-              if ($store.clinic.patients.length > 0 && !this.newPkgForm.patientId) {
-                  this.newPkgForm.patientId = $store.clinic.patients[0].id;
+              const pts = $store.clinic?.patients || [];
+              if (pts.length > 0 && !this.newPkgForm.patientId) {
+                  this.newPkgForm.patientId = pts[0].id;
               }
               this.isNewPackageModalOpen = true;
               window.refreshIcons();

@@ -31,7 +31,8 @@
     <!-- 5. App Bootstrapper (ES Module) -->
     <script type="module" src="../../assets/js/app.js"></script>
 
-    <!-- 6. Alpine.js CDN -->
+    <!-- 6. Alpine.js Initial Safety Bootstrapper & CDN -->
+    <script src="../../assets/js/config/alpine-init.js"></script>
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
@@ -53,9 +54,10 @@
         const urlScheduleId = params.get('scheduleId');
 
         if (urlScheduleId) {
-          const target = $store.clinic.enrichedSchedules.find(s => s.id === urlScheduleId);
+          const list = $store.clinic?.enrichedSchedules || [];
+          const target = list.find(s => s.id === urlScheduleId);
           if (target) {
-            $store.clinic.setActiveTherapist(target.therapistId);
+            $store.clinic?.setActiveTherapist && $store.clinic.setActiveTherapist(target.therapistId);
             this.selectedScheduleId = urlScheduleId;
             this.loadExistingEvaluation();
             this.$nextTick(() => window.refreshIcons());
@@ -64,18 +66,21 @@
         }
 
         // 2. Default ke sesi pertama milik terapis aktif saat ini
-        if ($store.clinic.therapistSchedules.length > 0) {
-          this.selectedScheduleId = $store.clinic.therapistSchedules[0].id;
+        const myScheds = $store.clinic?.therapistSchedules || [];
+        if (myScheds.length > 0) {
+          this.selectedScheduleId = myScheds[0].id;
           this.loadExistingEvaluation();
           this.$nextTick(() => window.refreshIcons());
         }
       },
       get activeSession() {
-        return $store.clinic.enrichedSchedules.find(s => s.id === this.selectedScheduleId) || null;
+        const list = $store.clinic?.enrichedSchedules || [];
+        return list.find(s => s.id === this.selectedScheduleId) || null;
       },
       get activePatient() {
         if (!this.activeSession) return null;
-        return $store.clinic.enrichedPatients.find(p => p.id === this.activeSession.patientId) || null;
+        const list = $store.clinic?.enrichedPatients || [];
+        return list.find(p => p.id === this.activeSession.patientId) || null;
       },
       get pastEvaluations() {
         if (!this.activePatient) return [];

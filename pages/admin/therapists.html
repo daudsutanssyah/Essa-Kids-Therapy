@@ -31,7 +31,8 @@
     <!-- 5. App Bootstrapper (ES Module) -->
     <script type="module" src="../../assets/js/app.js"></script>
 
-    <!-- 6. Alpine.js CDN -->
+    <!-- 6. Alpine.js Initial Safety Bootstrapper & CDN -->
+    <script src="../../assets/js/config/alpine-init.js"></script>
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
@@ -49,16 +50,19 @@
               phone: ''
           },
           get filteredTherapists() {
-              return $store.clinic.enrichedTherapists.filter(t => {
-                  const matchQuery = t.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                     t.id.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                     t.phone.toLowerCase().includes(this.searchQuery.toLowerCase());
+              const list = $store.clinic?.enrichedTherapists || [];
+              const query = (this.searchQuery || '').toLowerCase().trim();
+              return list.filter(t => {
+                  const name = (t.name || '').toLowerCase();
+                  const id = (t.id || '').toLowerCase();
+                  const phone = (t.phone || '').toLowerCase();
+                  const matchQuery = !query || name.includes(query) || id.includes(query) || phone.includes(query);
                   const matchSpecialty = this.filterSpecialty === 'ALL' || t.specialty === this.filterSpecialty;
                   return matchQuery && matchSpecialty;
               });
           },
           submitTherapist() {
-              const ok = $store.clinic.registerTherapist(this.form);
+              const ok = $store.clinic?.registerTherapist ? $store.clinic.registerTherapist(this.form) : false;
               if (ok) {
                   this.isRegisterModalOpen = false;
                   this.form = { name: '', specialty: 'SPEECH', phone: '' };
@@ -97,11 +101,11 @@
               <div class="card-body p-4 flex-row items-center justify-between">
                 <div>
                   <span class="badge badge-info badge-xs py-2 mb-1"
-                    >Physiotherapy</span
+                    >Fisioterapi</span
                   >
                   <p
                     class="text-2xl font-bold"
-                    x-text="$store.clinic.therapists.filter(t => t.specialty === 'PHYSIO').length + ' Terapis'"
+                    x-text="($store.clinic?.therapists || []).filter(t => t.specialty === 'PHYSIO').length + ' Terapis'"
                   ></p>
                 </div>
                 <div
@@ -116,11 +120,11 @@
               <div class="card-body p-4 flex-row items-center justify-between">
                 <div>
                   <span class="badge badge-secondary badge-xs py-2 mb-1"
-                    >Sensory Integration</span
+                    >Sensori Integrasi</span
                   >
                   <p
                     class="text-2xl font-bold"
-                    x-text="$store.clinic.therapists.filter(t => t.specialty === 'SENSORY').length + ' Terapis'"
+                    x-text="($store.clinic?.therapists || []).filter(t => t.specialty === 'SENSORY').length + ' Terapis'"
                   ></p>
                 </div>
                 <div
@@ -135,11 +139,11 @@
               <div class="card-body p-4 flex-row items-center justify-between">
                 <div>
                   <span class="badge badge-warning badge-xs py-2 mb-1"
-                    >Speech Therapy</span
+                    >Terapi Wicara</span
                   >
                   <p
                     class="text-2xl font-bold"
-                    x-text="$store.clinic.therapists.filter(t => t.specialty === 'SPEECH').length + ' Terapis'"
+                    x-text="($store.clinic?.therapists || []).filter(t => t.specialty === 'SPEECH').length + ' Terapis'"
                   ></p>
                 </div>
                 <div
@@ -154,11 +158,11 @@
               <div class="card-body p-4 flex-row items-center justify-between">
                 <div>
                   <span class="badge badge-success badge-xs py-2 mb-1"
-                    >Occupational</span
+                    >Terapi Okupasi</span
                   >
                   <p
                     class="text-2xl font-bold"
-                    x-text="$store.clinic.therapists.filter(t => t.specialty === 'OCCUPATIONAL').length + ' Terapis'"
+                    x-text="($store.clinic?.therapists || []).filter(t => t.specialty === 'OCCUPATIONAL').length + ' Terapis'"
                   ></p>
                 </div>
                 <div
@@ -269,13 +273,13 @@
                         <!-- Badge Spesialisasi -->
                         <td>
                           <span
-                            class="badge badge-sm font-medium"
-                            :class="therapist.serviceMeta.badgeClass"
-                            x-text="therapist.serviceMeta.name"
+                            class="badge badge-sm font-medium whitespace-nowrap"
+                            :class="therapist.serviceMeta?.badgeClass || 'badge-ghost'"
+                            x-text="therapist.serviceMeta?.name || therapist.specialty"
                           ></span>
                           <div
                             class="text-xs text-base-content/60 mt-0.5"
-                            x-text="therapist.serviceMeta.shortName"
+                            x-text="therapist.serviceMeta?.shortName || therapist.specialty"
                           ></div>
                         </td>
 

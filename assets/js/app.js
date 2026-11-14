@@ -12,11 +12,24 @@ import { renderTherapistSidebar } from "../../components/layout/therapist-sideba
 import { renderTopNavbar } from "../../components/layout/top-navbar.js";
 import { renderTherapistBottomNav } from "../../components/layout/therapist-bottom-nav.js";
 
-// 0. CEK & PAKSA ISI SEED DATA JIKA DATA PASIEN MASIH KOSONG
-const existingPatients = StorageAdapter.get(STORAGE_KEYS.PATIENTS, []);
-if (!existingPatients || existingPatients.length === 0) {
-  initializeDatabase(true);
-}
+// 0. CEK & VALIDASI SEED DATA LOKAL (PATIENTS, THERAPISTS, PACKAGES, SCHEDULES)
+const checkAndSeedDatabase = () => {
+  const patients = StorageAdapter.get(STORAGE_KEYS.PATIENTS, []);
+  const therapists = StorageAdapter.get(STORAGE_KEYS.THERAPISTS, []);
+  const packages = StorageAdapter.get(STORAGE_KEYS.PACKAGES, []);
+  const schedules = StorageAdapter.get(STORAGE_KEYS.SCHEDULES, []);
+
+  const isCorruptedOrEmpty =
+    !Array.isArray(patients) || patients.length === 0 ||
+    !Array.isArray(therapists) || therapists.length === 0 ||
+    !Array.isArray(packages) || packages.length === 0 ||
+    !Array.isArray(schedules) || schedules.length === 0;
+
+  if (isCorruptedOrEmpty) {
+    initializeDatabase(true);
+  }
+};
+checkAndSeedDatabase();
 
 // 1. Injeksi Komponen Layout Modular terlebih dahulu
 const initLayoutAndIcons = () => {

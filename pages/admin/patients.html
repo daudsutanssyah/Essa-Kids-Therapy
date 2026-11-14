@@ -31,7 +31,8 @@
     <!-- 5. App Bootstrapper (ES Module) -->
     <script type="module" src="../../assets/js/app.js"></script>
 
-    <!-- 6. Alpine.js CDN -->
+    <!-- 6. Alpine.js Initial Safety Bootstrapper & CDN -->
+    <script src="../../assets/js/config/alpine-init.js"></script>
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
@@ -56,11 +57,14 @@
               initialPackageTierId: 'PKG_REG_4'
           },
           get filteredPatients() {
-              return $store.clinic.enrichedPatients.filter(p => {
-                  const matchQuery = p.fullName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                     p.nickname.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                     p.parentName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                     p.id.toLowerCase().includes(this.searchQuery.toLowerCase());
+              const list = $store.clinic?.enrichedPatients || [];
+              const query = (this.searchQuery || '').toLowerCase().trim();
+              return list.filter(p => {
+                  const fullName = (p.fullName || '').toLowerCase();
+                  const nickname = (p.nickname || '').toLowerCase();
+                  const parentName = (p.parentName || '').toLowerCase();
+                  const id = (p.id || '').toLowerCase();
+                  const matchQuery = !query || fullName.includes(query) || nickname.includes(query) || parentName.includes(query) || id.includes(query);
                   const matchGender = this.filterGender === 'ALL' || p.gender === this.filterGender;
                   return matchQuery && matchGender;
               });

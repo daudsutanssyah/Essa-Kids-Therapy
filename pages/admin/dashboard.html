@@ -31,7 +31,8 @@
     <!-- 5. App Bootstrapper (ES Module) -->
     <script type="module" src="../../assets/js/app.js"></script>
 
-    <!-- 6. Alpine.js CDN -->
+    <!-- 6. Alpine.js Initial Safety Bootstrapper & CDN -->
+    <script src="../../assets/js/config/alpine-init.js"></script>
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
@@ -80,7 +81,7 @@
                   </p>
                   <p
                     class="text-3xl font-bold mt-1"
-                    x-text="$store.clinic.metrics.totalPatients"
+                    x-text="$store.clinic?.metrics?.totalPatients ?? 0"
                   >
                     0
                   </p>
@@ -107,7 +108,7 @@
                   </p>
                   <p
                     class="text-3xl font-bold mt-1"
-                    x-text="$store.clinic.metrics.todaySessions"
+                    x-text="$store.clinic?.metrics?.todaySessions ?? 0"
                   >
                     0
                   </p>
@@ -134,7 +135,7 @@
                   </p>
                   <p
                     class="text-3xl font-bold mt-1 text-success"
-                    x-text="$store.clinic.metrics.checkedInToday"
+                    x-text="$store.clinic?.metrics?.checkedInToday ?? 0"
                   >
                     0
                   </p>
@@ -161,7 +162,7 @@
                   </p>
                   <p
                     class="text-3xl font-bold mt-1 text-warning"
-                    x-text="$store.clinic.metrics.lowQuotaPackages"
+                    x-text="$store.clinic?.metrics?.lowQuotaPackages ?? 0"
                   >
                     0
                   </p>
@@ -226,7 +227,7 @@
                     </thead>
                     <tbody>
                       <template
-                        x-for="item in $store.clinic.enrichedSchedules.filter(s => selectedService === 'ALL' || s.serviceId === selectedService)"
+                        x-for="item in ($store.clinic?.enrichedSchedules || []).filter(s => selectedService === 'ALL' || s.serviceId === selectedService)"
                         :key="item.id"
                       >
                         <tr>
@@ -334,7 +335,7 @@
                     </h3>
                     <span
                       class="badge badge-warning badge-sm font-semibold whitespace-nowrap"
-                      x-text="$store.clinic.lowQuotaAlerts.length + ' Pasien'"
+                      x-text="($store.clinic?.lowQuotaAlerts || []).length + ' Pasien'"
                     ></span>
                   </div>
 
@@ -345,7 +346,7 @@
 
                   <div class="space-y-3 mt-3">
                     <template
-                      x-for="alert in $store.clinic.lowQuotaAlerts"
+                      x-for="alert in ($store.clinic?.lowQuotaAlerts || [])"
                       :key="alert.id"
                     >
                       <div

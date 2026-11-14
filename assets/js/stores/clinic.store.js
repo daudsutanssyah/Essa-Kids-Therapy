@@ -49,21 +49,40 @@ export const createClinicStore = () => ({
   },
 
   get currentTherapist() {
+    const list = this.therapists || [];
     const found =
-      this.therapists.find((t) => t.id === this.activeTherapistId) ||
-      this.therapists[0] ||
+      list.find((t) => t.id === this.activeTherapistId) ||
+      list[0] ||
       {};
+    const serviceMeta = THERAPY_SERVICES[found.specialty] || {
+      id: found.specialty || 'UNKNOWN',
+      name: found.specialty || 'Layanan Terapis',
+      shortName: found.specialty || 'Terapis',
+      badgeClass: 'badge-ghost',
+      icon: 'stethoscope',
+    };
     return {
       ...found,
-      serviceMeta: THERAPY_SERVICES[found.specialty] || {},
+      id: found.id || '',
+      name: found.name || 'Terapis',
+      phone: found.phone || '-',
+      serviceMeta,
     };
   },
 
   // Getter Reaktif: Daftar Terapis Lengkap dengan Statistik Beban Jadwal & Evaluasi
   get enrichedTherapists() {
-    return this.therapists.map((therapist) => {
-      const serviceMeta = THERAPY_SERVICES[therapist.specialty] || {};
-      const therapistSchedules = this.schedules.filter(
+    return (this.therapists || []).map((therapist) => {
+      const serviceMeta = THERAPY_SERVICES[therapist.specialty] || {
+        id: therapist.specialty || 'UNKNOWN',
+        name: therapist.specialty || 'Layanan Tidak Dikenal',
+        shortName: therapist.specialty || 'Layanan',
+        badgeClass: 'badge-ghost',
+        icon: 'activity',
+      };
+      const schedulesList = this.schedules || [];
+      const evaluationsList = this.evaluations || [];
+      const therapistSchedules = schedulesList.filter(
         (s) =>
           s.therapistId === therapist.id &&
           s.status !== SESSION_STATUS.CANCELLED.id,
@@ -73,21 +92,28 @@ export const createClinicStore = () => ({
           s.status === SESSION_STATUS.SCHEDULED.id ||
           s.status === SESSION_STATUS.CHECKED_IN.id,
       ).length;
-      const completedEvaluationsCount = this.evaluations.filter(
+      const completedEvaluationsCount = evaluationsList.filter(
         (e) => e.therapistId === therapist.id,
       ).length;
 
       // Ambil 2 huruf inisial nama (mengabaikan kata sapaan "Kak")
-      const cleanName = therapist.name.replace(/^Kak\s+/i, "");
+      const rawName = therapist.name || '';
+      const cleanName = rawName.replace(/^Kak\s+/i, "").trim();
       const initials = cleanName
-        .split(" ")
-        .slice(0, 2)
-        .map((w) => w[0])
-        .join("")
-        .toUpperCase();
+        ? cleanName
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((w) => w[0])
+            .join("")
+            .toUpperCase()
+        : "TR";
 
       return {
         ...therapist,
+        id: therapist.id || '',
+        name: therapist.name || 'Terapis',
+        phone: therapist.phone || '-',
         initials: initials || "TR",
         serviceMeta,
         totalSchedulesCount: therapistSchedules.length,
@@ -99,29 +125,47 @@ export const createClinicStore = () => ({
 
   // Getter Reaktif: Data Pasien Lengkap
   get enrichedPatients() {
-    return this.patients.map((patient) => {
-      const patientPackages = this.packages
+    const patientsList = this.patients || [];
+    const packagesList = this.packages || [];
+    const evaluationsList = this.evaluations || [];
+    const therapistsList = this.therapists || [];
+
+    return patientsList.map((patient) => {
+      const patientPackages = packagesList
         .filter((pkg) => pkg.patientId === patient.id)
         .map((pkg) => ({
           ...pkg,
-          serviceMeta: THERAPY_SERVICES[pkg.serviceId] || {},
+          serviceMeta: THERAPY_SERVICES[pkg.serviceId] || {
+            name: pkg.serviceId || 'Layanan',
+            shortName: pkg.serviceId || 'Layanan',
+            badgeClass: 'badge-ghost',
+          },
         }));
 
-      const patientEvaluations = this.evaluations
+      const patientEvaluations = evaluationsList
         .filter((ev) => ev.patientId === patient.id)
         .map((ev) => {
           const therapist =
-            this.therapists.find((t) => t.id === ev.therapistId) || {};
+            therapistsList.find((t) => t.id === ev.therapistId) || {};
           return {
             ...ev,
             therapistName: therapist.name || "-",
-            serviceMeta: THERAPY_SERVICES[ev.serviceId] || {},
+            serviceMeta: THERAPY_SERVICES[ev.serviceId] || {
+              name: ev.serviceId || 'Layanan',
+              shortName: ev.serviceId || 'Layanan',
+              badgeClass: 'badge-ghost',
+            },
             formattedDate: DateFormatter.toIndonesianDate(ev.date),
           };
         });
 
       return {
         ...patient,
+        id: patient.id || '',
+        fullName: patient.fullName || 'Pasien',
+        nickname: patient.nickname || '-',
+        parentName: patient.parentName || '-',
+        parentPhone: patient.parentPhone || '-',
         ageLabel: DateFormatter.calculateChildAge(patient.birthDate),
         formattedBirthDate: DateFormatter.toIndonesianDate(patient.birthDate),
         formattedRegDate: DateFormatter.toIndonesianDate(patient.registeredAt),
@@ -137,9 +181,16 @@ export const createClinicStore = () => ({
 
   // Getter Reaktif: Daftar Paket & Kuota Sesi
   get enrichedPackages() {
-    return this.packages.map((pkg) => {
-      const patient = this.patients.find((p) => p.id === pkg.patientId) || {};
-      const service = THERAPY_SERVICES[pkg.serviceId] || {};
+    const packagesList = this.packages || [];
+    const patientsList = this.patients || [];
+
+    return packagesList.map((pkg) => {
+      const patient = patientsList.find((p) => p.id === pkg.patientId) || {};
+      const service = THERAPY_SERVICES[pkg.serviceId] || {
+        name: pkg.serviceId || 'Layanan',
+        shortName: pkg.serviceId || 'Layanan',
+        badgeClass: 'badge-ghost',
+      };
       const total = pkg.totalQuota || 1;
       const remaining = pkg.remainingQuota ?? 0;
       const percentage = Math.round((remaining / total) * 100);
@@ -163,15 +214,25 @@ export const createClinicStore = () => ({
 
   // Getter Reaktif: Jadwal Sesi Lengkap
   get enrichedSchedules() {
-    return this.schedules.map((schedule) => {
+    const schedulesList = this.schedules || [];
+    const patientsList = this.patients || [];
+    const therapistsList = this.therapists || [];
+    const packagesList = this.packages || [];
+    const evaluationsList = this.evaluations || [];
+
+    return schedulesList.map((schedule) => {
       const patient =
-        this.patients.find((p) => p.id === schedule.patientId) || {};
+        patientsList.find((p) => p.id === schedule.patientId) || {};
       const therapist =
-        this.therapists.find((t) => t.id === schedule.therapistId) || {};
-      const pkg = this.packages.find((k) => k.id === schedule.packageId) || {};
+        therapistsList.find((t) => t.id === schedule.therapistId) || {};
+      const pkg = packagesList.find((k) => k.id === schedule.packageId) || {};
       const evaluation =
-        this.evaluations.find((e) => e.scheduleId === schedule.id) || null;
-      const service = THERAPY_SERVICES[schedule.serviceId] || {};
+        evaluationsList.find((e) => e.scheduleId === schedule.id) || null;
+      const service = THERAPY_SERVICES[schedule.serviceId] || {
+        name: schedule.serviceId || 'Layanan',
+        shortName: schedule.serviceId || 'Layanan',
+        badgeClass: 'badge-ghost',
+      };
       const statusMeta =
         SESSION_STATUS[schedule.status] || SESSION_STATUS.SCHEDULED;
 
@@ -195,32 +256,32 @@ export const createClinicStore = () => ({
   },
 
   get therapistSchedules() {
-    return this.enrichedSchedules.filter(
+    return (this.enrichedSchedules || []).filter(
       (s) => s.therapistId === this.activeTherapistId,
     );
   },
 
   get lowQuotaAlerts() {
-    return this.enrichedPackages.filter((pkg) => pkg.remainingQuota <= 2);
+    return (this.enrichedPackages || []).filter((pkg) => pkg.remainingQuota <= 2);
   },
 
   get metrics() {
+    const p = this.patients || [];
+    const t = this.therapists || [];
+    const s = this.schedules || [];
+    const k = this.packages || [];
     return {
-      totalPatients: this.patients.length,
-      totalTherapists: this.therapists.length,
-      todaySessions: this.schedules.length,
-      checkedInToday: this.schedules.filter(
-        (s) =>
-          s.status === SESSION_STATUS.CHECKED_IN.id ||
-          s.status === SESSION_STATUS.COMPLETED.id,
+      totalPatients: p.length,
+      totalTherapists: t.length,
+      todaySessions: s.length,
+      checkedInToday: s.filter(
+        (item) =>
+          item.status === SESSION_STATUS.CHECKED_IN.id ||
+          item.status === SESSION_STATUS.COMPLETED.id,
       ).length,
-      lowQuotaPackages: this.packages.filter((p) => p.remainingQuota <= 2)
-        .length,
-      activePackagesCount: this.packages.filter((p) => p.remainingQuota > 0)
-        .length,
-      exhaustedPackagesCount: this.packages.filter(
-        (p) => p.remainingQuota === 0,
-      ).length,
+      lowQuotaPackages: k.filter((pkg) => (pkg.remainingQuota ?? 0) <= 2).length,
+      activePackagesCount: k.filter((pkg) => (pkg.remainingQuota ?? 0) > 0).length,
+      exhaustedPackagesCount: k.filter((pkg) => (pkg.remainingQuota ?? 0) === 0).length,
     };
   },
 

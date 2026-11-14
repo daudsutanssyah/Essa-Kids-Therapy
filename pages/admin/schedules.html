@@ -31,7 +31,8 @@
     <!-- 5. App Bootstrapper (ES Module) -->
     <script type="module" src="../../assets/js/app.js"></script>
 
-    <!-- 6. Alpine.js CDN -->
+    <!-- 6. Alpine.js Initial Safety Bootstrapper & CDN -->
+    <script src="../../assets/js/config/alpine-init.js"></script>
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
@@ -57,7 +58,8 @@
               room: ''
           },
           get filteredSchedules() {
-              return $store.clinic.enrichedSchedules.filter(s => {
+              const list = $store.clinic?.enrichedSchedules || [];
+              return list.filter(s => {
                   const matchDate = !this.selectedDate || s.date === this.selectedDate;
                   const matchTherapist = this.filterTherapist === 'ALL' || s.therapistId === this.filterTherapist;
                   const matchService = this.filterService === 'ALL' || s.serviceId === this.filterService;
@@ -66,12 +68,14 @@
           },
           get patientActivePackages() {
               if (!this.form.patientId) return [];
-              return $store.clinic.enrichedPackages.filter(
-                  p => p.patientId === this.form.patientId && p.remainingQuota > 0
+              const list = $store.clinic?.enrichedPackages || [];
+              return list.filter(
+                  p => p.patientId === this.form.patientId && (p.remainingQuota ?? 0) > 0
               );
           },
           get liveConflict() {
               if (!this.isBookingModalOpen) return { hasConflict: false, message: '' };
+              if (!$store.clinic?.checkScheduleConflict) return { hasConflict: false, message: '' };
               return $store.clinic.checkScheduleConflict({
                   date: this.form.date,
                   timeSlot: this.form.timeSlot,
@@ -82,7 +86,7 @@
           },
           openBookingModal() {
               this.form.date = this.selectedDate;
-              this.form.timeSlot = $store.clinic.timeSlots[1] || '09:00 - 10:00';
+              this.form.timeSlot = ($store.clinic?.timeSlots || [])[1] || '09:00 - 10:00';
               if ($store.clinic.patients.length > 0) {
                   this.form.patientId = $store.clinic.patients[0].id;
                   this.onPatientChange();
