@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="id" data-theme="emerald">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Terapis — ESSA Kids Therapy</title>
+
+    <!-- 1. Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 2. DaisyUI & Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3. Konfigurasi Tailwind & Custom CSS -->
+    <script src="../../assets/js/config/tailwind.config.js"></script>
+    <link rel="stylesheet" href="../../assets/css/custom.css" />
+
+    <!-- 4. Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 5. App Bootstrapper (ES Module) -->
+    <script type="module" src="../../assets/js/app.js"></script>
+
+    <!-- 6. Alpine.js CDN -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
+    ></script>
+  </head>
+  <body
+    class="bg-base-200 font-sans text-base-content antialiased min-h-screen"
+    x-data="{
+          searchQuery: '',
+          filterSpecialty: 'ALL',
+          isRegisterModalOpen: false,
+          form: {
+              name: '',
+              specialty: 'SPEECH',
+              phone: ''
+          },
+          get filteredTherapists() {
+              return $store.clinic.enrichedTherapists.filter(t => {
+                  const matchQuery = t.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                     t.id.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                     t.phone.toLowerCase().includes(this.searchQuery.toLowerCase());
+                  const matchSpecialty = this.filterSpecialty === 'ALL' || t.specialty === this.filterSpecialty;
+                  return matchQuery && matchSpecialty;
+              });
+          },
+          submitTherapist() {
+              const ok = $store.clinic.registerTherapist(this.form);
+              if (ok) {
+                  this.isRegisterModalOpen = false;
+                  this.form = { name: '', specialty: 'SPEECH', phone: '' };
+              }
+          }
+      }"
+  >
+    <!-- Toast Notification -->
+    <div
+      class="toast toast-top toast-end z-50"
+      x-cloak
+      x-show="$store.ui.toastMessage"
+      x-transition
+    >
+      <div
+        class="alert shadow-lg text-sm font-medium"
+        :class="$store.ui.toastType === 'error' ? 'alert-error' : ($store.ui.toastType === 'info' ? 'alert-info' : 'alert-success')"
+      >
+        <span x-text="$store.ui.toastMessage"></span>
+      </div>
+    </div>
+
+    <!-- Layout Drawer Utama -->
+    <div class="drawer lg:drawer-open">
+      <input id="admin-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content flex flex-col min-h-screen">
+        <!-- Top Navbar -->
+        <div id="app-navbar" data-title="Manajemen & Pendaftaran Terapis"></div>
+
+        <!-- Konten Utama -->
+        <main class="p-4 lg:p-8 space-y-6 flex-1">
+          <!-- BAGIAN 1: Ringkasan Jumlah Terapis per Spesialisasi Layanan -->
+          <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-4 flex-row items-center justify-between">
+                <div>
+                  <span class="badge badge-info badge-xs py-2 mb-1"
+                    >Physiotherapy</span
+                  >
+                  <p
+                    class="text-2xl font-bold"
+                    x-text="$store.clinic.therapists.filter(t => t.specialty === 'PHYSIO').length + ' Terapis'"
+                  ></p>
+                </div>
+                <div
+                  class="w-10 h-10 rounded-xl bg-info/15 text-info flex items-center justify-center"
+                >
+                  <i data-lucide="activity" class="w-5 h-5"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-4 flex-row items-center justify-between">
+                <div>
+                  <span class="badge badge-secondary badge-xs py-2 mb-1"
+                    >Sensory Integration</span
+                  >
+                  <p
+                    class="text-2xl font-bold"
+                    x-text="$store.clinic.therapists.filter(t => t.specialty === 'SENSORY').length + ' Terapis'"
+                  ></p>
+                </div>
+                <div
+                  class="w-10 h-10 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center"
+                >
+                  <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-4 flex-row items-center justify-between">
+                <div>
+                  <span class="badge badge-warning badge-xs py-2 mb-1"
+                    >Speech Therapy</span
+                  >
+                  <p
+                    class="text-2xl font-bold"
+                    x-text="$store.clinic.therapists.filter(t => t.specialty === 'SPEECH').length + ' Terapis'"
+                  ></p>
+                </div>
+                <div
+                  class="w-10 h-10 rounded-xl bg-warning/15 text-warning flex items-center justify-center"
+                >
+                  <i data-lucide="message-circle" class="w-5 h-5"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-4 flex-row items-center justify-between">
+                <div>
+                  <span class="badge badge-success badge-xs py-2 mb-1"
+                    >Occupational</span
+                  >
+                  <p
+                    class="text-2xl font-bold"
+                    x-text="$store.clinic.therapists.filter(t => t.specialty === 'OCCUPATIONAL').length + ' Terapis'"
+                  ></p>
+                </div>
+                <div
+                  class="w-10 h-10 rounded-xl bg-success/15 text-success flex items-center justify-center"
+                >
+                  <i data-lucide="puzzle" class="w-5 h-5"></i>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- BAGIAN 2: Bar Pencarian, Filter Spesialisasi, & Tombol Tambah Terapis -->
+          <section class="card bg-base-100 border border-base-300 shadow-sm">
+            <div
+              class="card-body p-4 lg:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
+              <div
+                class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1"
+              >
+                <!-- Input Cari Nama / ID Terapis -->
+                <label
+                  class="input input-bordered input-sm flex items-center gap-2 flex-1 max-w-md"
+                >
+                  <i
+                    data-lucide="search"
+                    class="w-4 h-4 text-base-content/50"
+                  ></i>
+                  <input
+                    type="text"
+                    x-model="searchQuery"
+                    placeholder="Cari nama terapis, gelar, atau nomor kontak..."
+                    class="grow text-xs"
+                  />
+                </label>
+
+                <!-- Filter Spesialisasi Layanan -->
+                <select
+                  x-model="filterSpecialty"
+                  class="select select-bordered select-sm text-xs w-full sm:w-52"
+                >
+                  <option value="ALL">Semua Spesialisasi (4)</option>
+                  <option value="PHYSIO">Physiotherapy (Fisioterapi)</option>
+                  <option value="SENSORY">Sensory Integration</option>
+                  <option value="SPEECH">Speech Therapy (Terapi Wicara)</option>
+                  <option value="OCCUPATIONAL">Occupational Therapy</option>
+                </select>
+              </div>
+
+              <!-- Tombol Buka Modal Tambah Terapis Baru -->
+              <button
+                type="button"
+                @click="isRegisterModalOpen = true; window.refreshIcons()"
+                class="btn btn-primary btn-sm gap-2"
+              >
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                <span>Tambah Terapis Baru</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- BAGIAN 3: Tabel Daftar Terapis Klinik -->
+          <section class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-0">
+              <div class="overflow-x-auto">
+                <table class="table table-zebra align-middle">
+                  <thead>
+                    <tr
+                      class="text-xs uppercase text-base-content/60 bg-base-200/50"
+                    >
+                      <th class="pl-6">ID & Profil Terapis</th>
+                      <th>Spesialisasi Layanan</th>
+                      <th>Kontak WhatsApp</th>
+                      <th>Beban Sesi & Evaluasi</th>
+                      <th class="pr-6 text-right">Aksi Operasional</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template
+                      x-for="therapist in filteredTherapists"
+                      :key="therapist.id"
+                    >
+                      <tr class="hover">
+                        <!-- ID & Nama Lengkap Terapis -->
+                        <td class="pl-6">
+                          <div class="flex items-center gap-3">
+                            <div
+                              class="w-10 h-10 rounded-2xl bg-primary/15 text-primary flex items-center justify-center font-bold text-xs shrink-0"
+                              x-text="therapist.initials"
+                            ></div>
+                            <div>
+                              <div class="flex items-center gap-2">
+                                <span
+                                  class="font-bold text-sm"
+                                  x-text="therapist.name"
+                                ></span>
+                                <span
+                                  class="badge badge-ghost badge-xs font-mono"
+                                  x-text="therapist.id"
+                                ></span>
+                              </div>
+                              <div class="text-xs text-base-content/60 mt-0.5">
+                                Tenaga Ahli Tumbuh Kembang Anak
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Badge Spesialisasi -->
+                        <td>
+                          <span
+                            class="badge badge-sm font-medium"
+                            :class="therapist.serviceMeta.badgeClass"
+                            x-text="therapist.serviceMeta.name"
+                          ></span>
+                          <div
+                            class="text-xs text-base-content/60 mt-0.5"
+                            x-text="therapist.serviceMeta.shortName"
+                          ></div>
+                        </td>
+
+                        <!-- Nomor Kontak -->
+                        <td>
+                          <div
+                            class="font-mono text-xs font-medium"
+                            x-text="therapist.phone"
+                          ></div>
+                        </td>
+
+                        <!-- Statistik Beban Jadwal -->
+                        <td>
+                          <div class="flex items-center gap-3 text-xs">
+                            <span
+                              class="badge badge-outline badge-sm font-semibold"
+                              x-text="therapist.activeSessionsCount + ' Jadwal Aktif'"
+                            ></span>
+                            <span
+                              class="text-base-content/60"
+                              x-text="therapist.completedEvaluationsCount + ' Evaluasi Selesai'"
+                            ></span>
+                          </div>
+                        </td>
+
+                        <!-- Pintasan Portal Terapis & Hapus -->
+                        <td class="pr-6 text-right">
+                          <div class="flex items-center justify-end gap-2">
+                            <a
+                              href="../therapist/daily-schedule.html"
+                              @click="$store.clinic.setActiveTherapist(therapist.id)"
+                              class="btn btn-ghost btn-xs border border-base-300 gap-1"
+                              title="Buka Portal Terapis sebagai akun ini"
+                            >
+                              Buka Jadwal
+                            </a>
+                            <button
+                              type="button"
+                              @click="$store.clinic.removeTherapist(therapist.id)"
+                              class="btn btn-ghost btn-xs text-error"
+                              title="Hapus Terapis"
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
+
+                    <template x-if="filteredTherapists.length === 0">
+                      <tr>
+                        <td
+                          colspan="5"
+                          class="text-center py-10 text-base-content/50"
+                        >
+                          <p class="font-semibold text-sm">
+                            Data terapis tidak ditemukan
+                          </p>
+                          <p class="text-xs mt-1">
+                            Klik tombol "Tambah Terapis Baru" di kanan atas
+                            untuk mendaftarkan terapis.
+                          </p>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <!-- Sidebar Drawer (Aktif di menu 'therapists') -->
+      <div class="drawer-side z-30">
+        <label
+          for="admin-drawer"
+          aria-label="close sidebar"
+          class="drawer-overlay"
+        ></label>
+        <div id="app-sidebar" data-active="therapists"></div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL PENDAFTARAN TERAPIS BARU
+         ===================================================================== -->
+    <div class="modal" :class="{ 'modal-open': isRegisterModalOpen }" x-cloak>
+      <div class="modal-box max-w-md border border-base-300">
+        <div
+          class="flex items-center justify-between pb-3 border-b border-base-200"
+        >
+          <div>
+            <h3 class="font-bold text-lg">Tambah Terapis Baru</h3>
+            <p class="text-xs text-base-content/60">
+              Terapis baru otomatis tersedia di penjadwalan & radar okupansi.
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="isRegisterModalOpen = false"
+            class="btn btn-sm btn-circle btn-ghost"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form @submit.prevent="submitTherapist()" class="space-y-4 mt-4">
+          <div class="form-control">
+            <label class="label py-1"
+              ><span class="label-text text-xs font-semibold"
+                >Nama Lengkap & Gelar Terapis *</span
+              ></label
+            >
+            <input
+              type="text"
+              x-model="form.name"
+              required
+              placeholder="Contoh: Kak Farhan Akbar, S.Tr.Kes"
+              class="input input-bordered input-sm"
+            />
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1"
+              ><span class="label-text text-xs font-semibold"
+                >Spesialisasi Layanan Utama *</span
+              ></label
+            >
+            <select
+              x-model="form.specialty"
+              class="select select-bordered select-sm"
+            >
+              <option value="SPEECH">Speech Therapy (Terapi Wicara)</option>
+              <option value="SENSORY">
+                Sensory Integration (Sensori Integrasi)
+              </option>
+              <option value="PHYSIO">Physiotherapy (Fisioterapi)</option>
+              <option value="OCCUPATIONAL">
+                Occupational Therapy (Terapi Okupasi)
+              </option>
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1"
+              ><span class="label-text text-xs font-semibold"
+                >Nomor WhatsApp Aktif *</span
+              ></label
+            >
+            <input
+              type="tel"
+              x-model="form.phone"
+              required
+              placeholder="Contoh: 0812-3456-7005"
+              class="input input-bordered input-sm"
+            />
+          </div>
+
+          <div class="modal-action pt-2">
+            <button
+              type="button"
+              @click="isRegisterModalOpen = false"
+              class="btn btn-ghost btn-sm"
+            >
+              Batal
+            </button>
+            <button type="submit" class="btn btn-primary btn-sm">
+              Simpan Terapis
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

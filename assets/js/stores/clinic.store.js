@@ -14,6 +14,7 @@ import { StorageAdapter } from "../database/storage-adapter.js";
 import { initializeDatabase } from "../database/seed-data.js";
 import { DateFormatter } from "../utils/date-formatter.js";
 import { PatientService } from "../services/patient.service.js";
+import { TherapistService } from "../services/therapist.service.js";
 import { PackageService } from "../services/package.service.js";
 import { ScheduleService } from "../services/schedule.service.js";
 import { EvaluationService } from "../services/evaluation.service.js";
@@ -41,14 +42,12 @@ export const createClinicStore = () => ({
     this.evaluations = StorageAdapter.get(STORAGE_KEYS.EVALUATIONS, []);
   },
 
-  // Mengganti simulasi Terapis yang sedang login di Portal Mobile Terapis
   setActiveTherapist(therapistId) {
     this.activeTherapistId = therapistId;
     localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, therapistId);
     window.refreshIcons();
   },
 
-  // Getter Reaktif: Objek profil Terapis yang sedang aktif saat ini
   get currentTherapist() {
     const found =
       this.therapists.find((t) => t.id === this.activeTherapistId) ||
@@ -60,7 +59,45 @@ export const createClinicStore = () => ({
     };
   },
 
-  // Getter Reaktif: Data Pasien Lengkap (Usia, Paket Aktif, & Riwayat Evaluasi)
+  // Getter Reaktif: Daftar Terapis Lengkap dengan Statistik Beban Jadwal & Evaluasi
+  get enrichedTherapists() {
+    return this.therapists.map((therapist) => {
+      const serviceMeta = THERAPY_SERVICES[therapist.specialty] || {};
+      const therapistSchedules = this.schedules.filter(
+        (s) =>
+          s.therapistId === therapist.id &&
+          s.status !== SESSION_STATUS.CANCELLED.id,
+      );
+      const activeSessionsCount = therapistSchedules.filter(
+        (s) =>
+          s.status === SESSION_STATUS.SCHEDULED.id ||
+          s.status === SESSION_STATUS.CHECKED_IN.id,
+      ).length;
+      const completedEvaluationsCount = this.evaluations.filter(
+        (e) => e.therapistId === therapist.id,
+      ).length;
+
+      // Ambil 2 huruf inisial nama (mengabaikan kata sapaan "Kak")
+      const cleanName = therapist.name.replace(/^Kak\s+/i, "");
+      const initials = cleanName
+        .split(" ")
+        .slice(0, 2)
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase();
+
+      return {
+        ...therapist,
+        initials: initials || "TR",
+        serviceMeta,
+        totalSchedulesCount: therapistSchedules.length,
+        activeSessionsCount,
+        completedEvaluationsCount,
+      };
+    });
+  },
+
+  // Getter Reaktif: Data Pasien Lengkap
   get enrichedPatients() {
     return this.patients.map((patient) => {
       const patientPackages = this.packages
@@ -98,7 +135,7 @@ export const createClinicStore = () => ({
     });
   },
 
-  // Getter Reaktif: Daftar Paket & Kuota Sesi Lengkap dengan Persentase Progress
+  // Getter Reaktif: Daftar Paket & Kuota Sesi
   get enrichedPackages() {
     return this.packages.map((pkg) => {
       const patient = this.patients.find((p) => p.id === pkg.patientId) || {};
@@ -124,7 +161,7 @@ export const createClinicStore = () => ({
     });
   },
 
-  // Getter Reaktif: Menggabungkan jadwal dengan detail objek Pasien, Terapis, Evaluasi & Layanan
+  // Getter Reaktif: Jadwal Sesi Lengkap
   get enrichedSchedules() {
     return this.schedules.map((schedule) => {
       const patient =
@@ -157,22 +194,20 @@ export const createClinicStore = () => ({
     });
   },
 
-  // Getter Reaktif: Jadwal khusus untuk Terapis yang sedang login (activeTherapistId)
   get therapistSchedules() {
     return this.enrichedSchedules.filter(
       (s) => s.therapistId === this.activeTherapistId,
     );
   },
 
-  // Getter Reaktif: Daftar paket yang kuotanya hampir habis (<= 2 sesi)
   get lowQuotaAlerts() {
     return this.enrichedPackages.filter((pkg) => pkg.remainingQuota <= 2);
   },
 
-  // Ringkasan metrik cepat untuk Dashboard & Halaman Paket
   get metrics() {
     return {
       totalPatients: this.patients.length,
+      totalTherapists: this.therapists.length,
       todaySessions: this.schedules.length,
       checkedInToday: this.schedules.filter(
         (s) =>
@@ -214,7 +249,41 @@ export const createClinicStore = () => ({
     return true;
   },
 
-  // Aksi Operasional: Tambah Paket Terapi Baru untuk Pasien Terdaftar
+  // Aksi Operasional: Pendaftaran Terapis Baru
+  registerTherapist(formData) {
+    if (!formData.name || !formData.specialty || !formData.phone) {
+      Alpine.store("ui").showToast(
+        "Mohon lengkapi nama terapis, spesialisasi, dan nomor WhatsApp.",
+        "error",
+      );
+      return false;
+    }
+
+    TherapistService.registerTherapist(formData);
+    this.syncFromStorage();
+    window.refreshIcons();
+    Alpine.store("ui").showToast(
+      `Terapis "${formData.name}" berhasil ditambahkan!`,
+      "success",
+    );
+    return true;
+  },
+
+  // Aksi Operasional: Hapus Data Terapis
+  removeTherapist(therapistId) {
+    const result = TherapistService.deleteTherapist(therapistId);
+    if (!result.success) {
+      Alpine.store("ui").showToast(result.error, "error");
+      return false;
+    }
+
+    this.syncFromStorage();
+    window.refreshIcons();
+    Alpine.store("ui").showToast("Data terapis berhasil dihapus.", "info");
+    return true;
+  },
+
+  // Aksi Operasional: Tambah Paket Terapi Baru
   addPackage(formData) {
     if (!formData.patientId || !formData.serviceId || !formData.tierId) {
       Alpine.store("ui").showToast(
@@ -263,12 +332,10 @@ export const createClinicStore = () => ({
     }
   },
 
-  // Helper Reaktif: Cek Bentrok Jadwal secara Real-Time dari UI Modal
   checkScheduleConflict(payload) {
     return ScheduleService.checkConflict(payload);
   },
 
-  // Aksi Operasional: Buat Jadwal Sesi Baru (Dengan Validasi Anti-Bentrok)
   createSchedule(formData) {
     if (
       !formData.date ||
@@ -300,7 +367,6 @@ export const createClinicStore = () => ({
     return true;
   },
 
-  // Aksi Operasional: Batalkan Jadwal Sesi
   cancelSchedule(scheduleId) {
     const updated = ScheduleService.cancelSchedule(scheduleId);
     if (updated) {
@@ -313,7 +379,6 @@ export const createClinicStore = () => ({
     }
   },
 
-  // Aksi Operasional: Check-In Pasien & Potong Kuota Paket 1 Poin
   checkInPatient(scheduleId) {
     const schedule = this.schedules.find((s) => s.id === scheduleId);
     if (!schedule || schedule.status !== SESSION_STATUS.SCHEDULED.id) return;
@@ -349,7 +414,6 @@ export const createClinicStore = () => ({
     );
   },
 
-  // Aksi Terapis: Simpan Catatan Evaluasi Perkembangan Sesi Anak
   submitEvaluation(formData) {
     if (
       !formData.scheduleId ||
@@ -380,7 +444,7 @@ export const createClinicStore = () => ({
 
   resetDatabase() {
     const confirmed = confirm(
-      "Reset seluruh data simulasi (Pasien, Paket Kuota, Jadwal, & Evaluasi) ke kondisi awal?",
+      "Reset seluruh data simulasi (Pasien, Terapis, Paket Kuota, Jadwal, & Evaluasi) ke kondisi awal?",
     );
     if (confirmed) {
       StorageAdapter.clearAll();

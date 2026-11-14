@@ -1,6 +1,6 @@
 /**
  * Komponen Sidebar Admin (Modular UI Partial)
- * Mendukung mode Collapse (Mini Icon w-20) & Expand (Full w-72) menggunakan Alpine.js ($store.ui.sidebarCollapsed)
+ * Mendukung mode Collapse (Mini Icon w-20) & Expand (Full w-72)
  */
 
 export const renderAdminSidebar = (activeMenu = "dashboard") => {
@@ -16,6 +16,12 @@ export const renderAdminSidebar = (activeMenu = "dashboard") => {
       label: "Data Pasien Anak",
       icon: "users",
       href: "./patients.html",
+    },
+    {
+      id: "therapists",
+      label: "Data Terapis",
+      icon: "stethoscope",
+      href: "./therapists.html",
     },
     {
       id: "packages",
@@ -63,7 +69,6 @@ export const renderAdminSidebar = (activeMenu = "dashboard") => {
       
       <!-- Bagian Atas: Brand, Tombol Toggle, & Navigasi -->
       <div>
-        <!-- Header Sidebar: Brand Identity + Tombol Toggle -->
         <div class="flex items-center justify-between mb-6"
              :class="$store.ui.sidebarCollapsed ? 'flex-col gap-3' : 'px-2'">
           
@@ -92,20 +97,18 @@ export const renderAdminSidebar = (activeMenu = "dashboard") => {
             </span>
           </button>
 
-          <!-- Tombol Tutup Sidebar (Khusus Layar Mobile/Tablet) -->
+          <!-- Tombol Tutup Sidebar (Mobile/Tablet) -->
           <label for="admin-drawer" class="btn btn-ghost btn-sm btn-square lg:hidden text-base-content/70">
             <i data-lucide="x" class="w-5 h-5"></i>
           </label>
         </div>
 
-        <!-- Label Kategori Menu -->
         <div x-show="!$store.ui.sidebarCollapsed" 
              class="text-[11px] font-semibold uppercase tracking-wider text-base-content/40 px-4 mb-2 whitespace-nowrap">
           Menu Operasional
         </div>
         <div x-show="$store.ui.sidebarCollapsed" x-cloak class="divider my-2"></div>
 
-        <!-- Daftar Menu -->
         <ul class="space-y-1.5 text-sm">
           ${menuItemsHtml}
         </ul>
@@ -113,28 +116,25 @@ export const renderAdminSidebar = (activeMenu = "dashboard") => {
 
       <!-- Bagian Bawah: Switcher & Info Layanan -->
       <div class="space-y-3 pt-4 border-t border-base-200">
-        
-        <!-- Legenda Singkat Layanan (Disembunyikan saat mode Collapse agar rapi) -->
         <div x-show="!$store.ui.sidebarCollapsed" 
              x-transition.opacity
              class="bg-base-200/70 rounded-xl p-3 text-xs space-y-1.5 overflow-hidden">
           <div class="font-semibold text-base-content/70 mb-1 whitespace-nowrap">Layanan Klinik:</div>
           <div class="flex flex-wrap gap-1">
-            <span class="badge badge-info badge-xs py-2">Fisio</span>
-            <span class="badge badge-secondary badge-xs py-2">Sensori</span>
-            <span class="badge badge-warning badge-xs py-2">Wicara</span>
-            <span class="badge badge-success badge-xs py-2">Okupasi</span>
+            <span class="badge badge-info badge-xs py-2">Physio</span>
+            <span class="badge badge-secondary badge-xs py-2">Sensory</span>
+            <span class="badge badge-warning badge-xs py-2">Speech</span>
+            <span class="badge badge-success badge-xs py-2">Occup</span>
           </div>
         </div>
 
-        <!-- Pintasan Pindah ke Portal Terapis -->
         <a href="../therapist/daily-schedule.html" 
-           title="Buka Portal Terapis"
+           title="Buka Mode Terapis"
            :class="$store.ui.sidebarCollapsed ? 'btn-square mx-auto flex' : 'btn-block justify-between'"
            class="btn btn-outline btn-sm font-normal text-xs">
           <span class="flex items-center gap-2">
             <i data-lucide="stethoscope" class="w-4 h-4 text-secondary shrink-0"></i>
-            <span x-show="!$store.ui.sidebarCollapsed" class="whitespace-nowrap">Portal Terapis</span>
+            <span x-show="!$store.ui.sidebarCollapsed" class="whitespace-nowrap">Buka Mode Terapis</span>
           </span>
           <span x-show="!$store.ui.sidebarCollapsed">
             <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 opacity-60"></i>
