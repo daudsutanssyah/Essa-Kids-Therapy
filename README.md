@@ -188,9 +188,10 @@ Seluruh *business logic* di dalam folder `assets/js/services/` dirancang murni t
 
 ---
 
-## 👥 Tim Pengembang & Kontak
+## 👤 Pengembang & Kontak
 
-Dokumentasi ini disiapkan oleh Tim Frontend Architecture **ESSA Kids Therapy**.  
-Untuk pertanyaan, diskusi pengembangan fitur kustom, atau migrasi ke tahap produksi penuh, silakan menghubungi tim pengembang proyek.
+Aplikasi dan dokumentasi ini dikembangkan secara pribadi oleh **Daud Sutan Syah** (*Frontend Developer & Architect*).  
+Untuk pertanyaan, diskusi penyesuaian fitur, maupun rencana migrasi sistem ke tahap produksi penuh, silakan menghubungi pengembang melalui profil GitHub:  
+👉 **[@daudsutanssyah](https://github.com/daudsutanssyah)** | **[Repositori Proyek](https://github.com/daudsutanssyah/Essa-Kids-Therapy)**
 
 > *Dibuat dengan dedikasi penuh untuk mendukung tumbuh kembang optimal anak-anak Indonesia.* 🌟
