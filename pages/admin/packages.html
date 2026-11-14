@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paket & Kuota Sesi — ESSA Kids Therapy</title>
+
+    <!-- 1. Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- 2. DaisyUI & Tailwind CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3. Konfigurasi Tailwind & Custom CSS -->
+    <script src="../../assets/js/config/tailwind.config.js"></script>
+    <link rel="stylesheet" href="../../assets/css/custom.css">
+
+    <!-- 4. Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 5. App Bootstrapper (ES Module) -->
+    <script type="module" src="../../assets/js/app.js"></script>
+
+    <!-- 6. Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+</head>
+<body class="bg-base-200 font-sans text-base-content antialiased min-h-screen"
+      x-data="{
+          searchQuery: '',
+          filterService: 'ALL',
+          filterHealth: 'ALL',
+          isNewPackageModalOpen: false,
+          selectedTopUpPkg: null,
+          topUpTierId: 'PKG_INT_8',
+          newPkgForm: {
+              patientId: '',
+              serviceId: 'SPEECH',
+              tierId: 'PKG_REG_4'
+          },
+          get filteredPackages() {
+              return $store.clinic.enrichedPackages.filter(pkg => {
+                  const matchQuery = pkg.patientName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                     pkg.patientNickname.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                     pkg.id.toLowerCase().includes(this.searchQuery.toLowerCase());
+                  const matchService = this.filterService === 'ALL' || pkg.serviceId === this.filterService;
+                  const matchHealth = this.filterHealth === 'ALL' || pkg.quotaHealth === this.filterHealth;
+                  return matchQuery && matchService && matchHealth;
+              });
+          },
+          openNewPackageModal() {
+              if ($store.clinic.patients.length > 0 && !this.newPkgForm.patientId) {
+                  this.newPkgForm.patientId = $store.clinic.patients[0].id;
+              }
+              this.isNewPackageModalOpen = true;
+              window.refreshIcons();
+          },
+          submitNewPackage() {
+              const ok = $store.clinic.addPackage(this.newPkgForm);
+              if (ok) {
+                  this.isNewPackageModalOpen = false;
+              }
+          },
+          submitTopUp() {
+              if (!this.selectedTopUpPkg) return;
+              const ok = $store.clinic.topUpPackage(this.selectedTopUpPkg.id, this.topUpTierId);
+              if (ok) {
+                  this.selectedTopUpPkg = null;
+              }
+          }
+      }">
+
+    <!-- Toast Notification -->
+    <div class="toast toast-top toast-end z-50" x-cloak x-show="$store.ui.toastMessage" x-transition>
+        <div class="alert shadow-lg text-sm font-medium"
+             :class="$store.ui.toastType === 'error' ? 'alert-error' : ($store.ui.toastType === 'info' ? 'alert-info' : 'alert-success')">
+            <span x-text="$store.ui.toastMessage"></span>
+        </div>
+    </div>
+
+    <!-- Layout Drawer Utama -->
+    <div class="drawer lg:drawer-open">
+        <input id="admin-drawer" type="checkbox" class="drawer-toggle" />
+
+        <div class="drawer-content flex flex-col min-h-screen">
+            
+            <!-- Top Navbar -->
+            <div id="app-navbar" data-title="Manajemen Paket & Kuota Sesi"></div>
+
+            <!-- Konten Utama -->
+            <main class="p-4 lg:p-8 space-y-6 flex-1">
+
+                <!-- BAGIAN 1: 3 Kartu Ringkasan Status Paket -->
+                <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Paket Aktif -->
+                    <div class="card bg-base-100 border border-base-300 shadow-sm">
+                        <div class="card-body p-5 flex-row items-center justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-base-content/60 uppercase tracking-wider">Paket Kuota Aktif</p>
+                                <p class="text-3xl font-bold mt-1 text-primary" x-text="$store.clinic.metrics.activePackagesCount">0</p>
+                                <p class="text-xs text-base-content/60 mt-1">Memiliki sisa kuota sesi</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                                <i data-lucide="package-check" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kuota Menipis (<= 2 Sesi) -->
+                    <div class="card bg-base-100 border border-base-300 shadow-sm">
+                        <div class="card-body p-5 flex-row items-center justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-base-content/60 uppercase tracking-wider">Perlu Perpanjangan</p>
+                                <p class="text-3xl font-bold mt-1 text-warning" x-text="$store.clinic.metrics.lowQuotaPackages">0</p>
+                                <p class="text-xs text-base-content/60 mt-1">Sisa kuota &le; 2 sesi</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-warning/15 text-warning flex items-center justify-center">
+                                <i data-lucide="bell-ring" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Paket Habis (0 Sesi) -->
+                    <div class="card bg-base-100 border border-base-300 shadow-sm">
+                        <div class="card-body p-5 flex-row items-center justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-base-content/60 uppercase tracking-wider">Kuota Habis (0 Sesi)</p>
+                                <p class="text-3xl font-bold mt-1 text-error" x-text="$store.clinic.metrics.exhaustedPackagesCount">0</p>
+                                <p class="text-xs text-base-content/60 mt-1">Wajib Top-Up sebelum Check-In</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-error/10 text-error flex items-center justify-center">
+                                <i data-lucide="package-x" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- BAGIAN 2: Bar Pencarian, Filter Layanan, & Tombol Aktivasi Paket Baru -->
+                <section class="card bg-base-100 border border-base-300 shadow-sm">
+                    <div class="card-body p-4 lg:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+                            <!-- Cari Nama Pasien / ID Paket -->
+                            <label class="input input-bordered input-sm flex items-center gap-2 flex-1 max-w-sm">
+                                <i data-lucide="search" class="w-4 h-4 text-base-content/50"></i>
+                                <input type="text" 
+                                       x-model="searchQuery" 
+                                       placeholder="Cari nama anak atau ID paket..." 
+                                       class="grow text-xs" />
+                            </label>
+
+                            <!-- Filter Layanan Terapi -->
+                            <select x-model="filterService" class="select select-bordered select-sm text-xs w-full sm:w-48">
+                                <option value="ALL">Semua Layanan Terapi</option>
+                                <option value="PHYSIO">Physiotherapy</option>
+                                <option value="SENSORY">Sensory Integration</option>
+                                <option value="SPEECH">Speech Therapy</option>
+                                <option value="OCCUPATIONAL">Occupational Therapy</option>
+                            </select>
+
+                            <!-- Filter Kondisi Kuota -->
+                            <select x-model="filterHealth" class="select select-bordered select-sm text-xs w-full sm:w-44">
+                                <option value="ALL">Semua Status Kuota</option>
+                                <option value="SAFE">Kuota Aman (&gt; 2 Sesi)</option>
+                                <option value="LOW">Hampir Habis (1-2 Sesi)</option>
+                                <option value="EXHAUSTED">Habis (0 Sesi)</option>
+                            </select>
+                        </div>
+
+                        <!-- Tombol Buka Modal Tambah Paket Baru -->
+                        <button type="button" 
+                                @click="openNewPackageModal()" 
+                                class="btn btn-primary btn-sm gap-2">
+                            <i data-lucide="package-plus" class="w-4 h-4"></i>
+                            <span>Beli / Aktifkan Paket Baru</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- BAGIAN 3: Tabel Kuota Paket Sesi Pasien -->
+                <section class="card bg-base-100 border border-base-300 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra align-middle">
+                                <thead>
+                                    <tr class="text-xs uppercase text-base-content/60 bg-base-200/50">
+                                        <th class="pl-6">ID Paket & Pasien Anak</th>
+                                        <th>Layanan & Jenis Paket</th>
+                                        <th class="w-64">Progress Pemakaian Sesi</th>
+                                        <th>Status Kuota</th>
+                                        <th class="pr-6 text-right">Koreksi / Perpanjangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="pkg in filteredPackages" :key="pkg.id">
+                                        <tr class="hover">
+                                            <!-- ID Paket & Nama Anak -->
+                                            <td class="pl-6">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="badge badge-ghost badge-xs font-mono" x-text="pkg.id"></span>
+                                                    <span class="font-bold text-sm" x-text="pkg.patientName"></span>
+                                                </div>
+                                                <div class="text-xs text-base-content/60 mt-0.5">
+                                                    Wali: <span x-text="pkg.parentName"></span> (<span class="font-mono" x-text="pkg.parentPhone"></span>)
+                                                </div>
+                                            </td>
+
+                                            <!-- Layanan & Jenis Paket -->
+                                            <td>
+                                                <span class="badge badge-sm font-medium mb-1"
+                                                      :class="pkg.serviceMeta.badgeClass"
+                                                      x-text="pkg.serviceMeta.name"></span>
+                                                <div class="text-xs font-semibold text-base-content/80" x-text="pkg.packageName"></div>
+                                            </td>
+
+                                            <!-- Progress Bar Kuota Sesi -->
+                                            <td>
+                                                <div class="flex items-center justify-between text-xs mb-1">
+                                                    <span class="text-base-content/70">
+                                                        Terpakai: <strong x-text="pkg.usedQuota"></strong> sesi
+                                                    </span>
+                                                    <span class="font-bold"
+                                                          :class="pkg.remainingQuota <= 1 ? 'text-error' : 'text-primary'"
+                                                          x-text="'Sisa ' + pkg.remainingQuota + ' / ' + pkg.totalQuota"></span>
+                                                </div>
+                                                <progress class="progress w-full h-2"
+                                                          :class="pkg.remainingQuota === 0 ? 'progress-error' : (pkg.remainingQuota <= 2 ? 'progress-warning' : 'progress-primary')"
+                                                          :value="pkg.remainingQuota"
+                                                          :max="pkg.totalQuota"></progress>
+                                            </td>
+
+                                            <!-- Badge Status Kuota -->
+                                            <td>
+                                                <template x-if="pkg.quotaHealth === 'SAFE'">
+                                                    <span class="badge badge-success badge-sm badge-outline font-semibold">Aktif & Aman</span>
+                                                </template>
+                                                <template x-if="pkg.quotaHealth === 'LOW'">
+                                                    <span class="badge badge-warning badge-sm font-semibold">Segera Perpanjang</span>
+                                                </template>
+                                                <template x-if="pkg.quotaHealth === 'EXHAUSTED'">
+                                                    <span class="badge badge-error badge-sm font-semibold">Kuota Habis</span>
+                                                </template>
+                                            </td>
+
+                                            <!-- Tombol Koreksi Manual & Top-Up -->
+                                            <td class="pr-6 text-right">
+                                                <div class="flex items-center justify-end gap-1.5">
+                                                    <!-- Koreksi Manual (-1 / +1) -->
+                                                    <div class="join border border-base-300 rounded-lg">
+                                                        <button type="button"
+                                                                @click="$store.clinic.adjustPackageQuota(pkg.id, -1)"
+                                                                :disabled="pkg.remainingQuota <= 0"
+                                                                title="Kurangi 1 sesi"
+                                                                class="btn btn-ghost btn-xs join-item px-2 font-bold">-</button>
+                                                        <span class="px-2 text-[11px] flex items-center bg-base-200/50 text-base-content/60">Sesi</span>
+                                                        <button type="button"
+                                                                @click="$store.clinic.adjustPackageQuota(pkg.id, 1)"
+                                                                :disabled="pkg.remainingQuota >= pkg.totalQuota"
+                                                                title="Kembalikan 1 sesi"
+                                                                class="btn btn-ghost btn-xs join-item px-2 font-bold">+</button>
+                                                    </div>
+
+                                                    <!-- Tombol Buka Modal Top-Up -->
+                                                    <button type="button"
+                                                            @click="selectedTopUpPkg = pkg; topUpTierId = 'PKG_INT_8'"
+                                                            class="btn btn-primary btn-xs gap-1">
+                                                        Top-Up Kuota
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+
+                                    <template x-if="filteredPackages.length === 0">
+                                        <tr>
+                                            <td colspan="5" class="text-center py-10 text-base-content/50">
+                                                <p class="font-semibold text-sm">Tidak ada paket kuota yang sesuai filter</p>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+
+        <!-- Sidebar Drawer (Aktif di menu 'packages') -->
+        <div class="drawer-side z-30">
+            <label for="admin-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+            <div id="app-sidebar" data-active="packages"></div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 1: AKTIVASI PAKET TERAPI BARU UNTUK PASIEN TERDAFTAR
+         ===================================================================== -->
+    <div class="modal" :class="{ 'modal-open': isNewPackageModalOpen }" x-cloak>
+        <div class="modal-box max-w-md border border-base-300">
+            <div class="flex items-center justify-between pb-3 border-b border-base-200">
+                <div>
+                    <h3 class="font-bold text-lg">Aktivasi Paket Terapi Baru</h3>
+                    <p class="text-xs text-base-content/60">Tambahkan layanan terapi baru untuk pasien terdaftar.</p>
+                </div>
+                <button type="button" @click="isNewPackageModalOpen = false" class="btn btn-sm btn-circle btn-ghost">✕</button>
+            </div>
+
+            <form @submit.prevent="submitNewPackage()" class="space-y-4 mt-4">
+                <div class="form-control">
+                    <label class="label py-1"><span class="label-text text-xs font-semibold">Pilih Pasien Anak *</span></label>
+                    <select x-model="newPkgForm.patientId" required class="select select-bordered select-sm">
+                        <template x-for="p in $store.clinic.patients" :key="p.id">
+                            <option :value="p.id" x-text="p.fullName + ' (' + p.nickname + ')'"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div class="form-control">
+                    <label class="label py-1"><span class="label-text text-xs font-semibold">Pilih Layanan Terapi *</span></label>
+                    <select x-model="newPkgForm.serviceId" class="select select-bordered select-sm">
+                        <option value="SPEECH">Speech Therapy (Terapi Wicara)</option>
+                        <option value="SENSORY">Sensory Integration (Sensori Integrasi)</option>
+                        <option value="PHYSIO">Physiotherapy (Fisioterapi)</option>
+                        <option value="OCCUPATIONAL">Occupational Therapy (Terapi Okupasi)</option>
+                    </select>
+                </div>
+
+                <div class="form-control">
+                    <label class="label py-1"><span class="label-text text-xs font-semibold">Pilihan Kuota Paket *</span></label>
+                    <select x-model="newPkgForm.tierId" class="select select-bordered select-sm">
+                        <option value="PKG_REG_4">Paket Reguler (4 Sesi — Masa Aktif 30 Hari)</option>
+                        <option value="PKG_INT_8">Paket Intensif (8 Sesi — Masa Aktif 60 Hari)</option>
+                        <option value="PKG_OPT_12">Paket Optimal (12 Sesi — Masa Aktif 90 Hari)</option>
+                    </select>
+                </div>
+
+                <div class="modal-action pt-2">
+                    <button type="button" @click="isNewPackageModalOpen = false" class="btn btn-ghost btn-sm">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Aktifkan Paket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 2: TOP-UP / PERPANJANGAN KUOTA PAKET
+         ===================================================================== -->
+    <div class="modal" :class="{ 'modal-open': selectedTopUpPkg !== null }" x-cloak>
+        <div class="modal-box max-w-md border border-base-300" x-show="selectedTopUpPkg">
+            <div class="flex items-center justify-between pb-3 border-b border-base-200">
+                <div>
+                    <h3 class="font-bold text-lg">Top-Up / Perpanjang Kuota Sesi</h3>
+                    <p class="text-xs text-base-content/60">Akumulasi otomatis dengan sisa kuota pasien saat ini.</p>
+                </div>
+                <button type="button" @click="selectedTopUpPkg = null" class="btn btn-sm btn-circle btn-ghost">✕</button>
+            </div>
+
+            <form @submit.prevent="submitTopUp()" class="space-y-4 mt-4">
+                <!-- Info Paket Saat Ini -->
+                <div class="p-3.5 rounded-xl bg-base-200/80 border border-base-300 space-y-1 text-xs">
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Nama Pasien:</span>
+                        <strong x-text="selectedTopUpPkg?.patientName"></strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Layanan Terapi:</span>
+                        <strong x-text="selectedTopUpPkg?.serviceMeta?.name"></strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Sisa Kuota Saat Ini:</span>
+                        <strong class="text-error" x-text="selectedTopUpPkg?.remainingQuota + ' Sesi'"></strong>
+                    </div>
+                </div>
+
+                <div class="form-control">
+                    <label class="label py-1"><span class="label-text text-xs font-semibold">Pilih Paket Tambahan (Top-Up) *</span></label>
+                    <select x-model="topUpTierId" class="select select-bordered select-sm">
+                        <option value="PKG_REG_4">+4 Sesi — Paket Reguler</option>
+                        <option value="PKG_INT_8">+8 Sesi — Paket Intensif</option>
+                        <option value="PKG_OPT_12">+12 Sesi — Paket Optimal</option>
+                    </select>
+                </div>
+
+                <div class="modal-action pt-2">
+                    <button type="button" @click="selectedTopUpPkg = null" class="btn btn-ghost btn-sm">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Konfirmasi Top-Up</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

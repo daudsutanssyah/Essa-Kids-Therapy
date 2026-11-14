@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="id" data-theme="emerald">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jadwal Harian Terapis — ESSA Kids Therapy</title>
+
+    <!-- 1. Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 2. DaisyUI & Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3. Konfigurasi Tailwind & Custom CSS -->
+    <script src="../../assets/js/config/tailwind.config.js"></script>
+    <link rel="stylesheet" href="../../assets/css/custom.css" />
+
+    <!-- 4. Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 5. App Bootstrapper (ES Module) -->
+    <script type="module" src="../../assets/js/app.js"></script>
+
+    <!-- 6. Alpine.js CDN -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
+    ></script>
+  </head>
+  <body
+    class="bg-base-200 font-sans text-base-content antialiased min-h-screen"
+    x-data="{
+      filterStatus: 'ALL',
+      searchQuery: '',
+      get mySchedules() {
+        const query = this.searchQuery.trim().toLowerCase();
+        return $store.clinic.therapistSchedules.filter(s => {
+          const matchStatus = (this.filterStatus === 'ALL') || (s.status === this.filterStatus);
+          if (!matchStatus) return false;
+          if (!query) return true;
+          const patientName = (s.patientName || '').toLowerCase();
+          const nickname = (s.patientNickname || '').toLowerCase();
+          const parentName = (s.parentName || '').toLowerCase();
+          const room = (s.room || '').toLowerCase();
+          return patientName.includes(query) || nickname.includes(query) || parentName.includes(query) || room.includes(query);
+        });
+      },
+      get countAll() {
+        return $store.clinic.therapistSchedules.length;
+      },
+      get countCheckedIn() {
+        return $store.clinic.therapistSchedules.filter(s => s.status === 'CHECKED_IN').length;
+      },
+      get countCompleted() {
+        return $store.clinic.therapistSchedules.filter(s => s.status === 'COMPLETED').length;
+      }
+    }"
+  >
+    <!-- Toast Notification Mengambang -->
+    <div
+      class="toast toast-top toast-end z-50"
+      x-cloak
+      x-show="$store.ui.toastMessage"
+      x-transition
+    >
+      <div
+        class="alert shadow-lg text-sm font-medium"
+        :class="$store.ui.toastType === 'error' ? 'alert-error' : 'alert-success'"
+      >
+        <span x-text="$store.ui.toastMessage"></span>
+      </div>
+    </div>
+
+    <!-- Struktur Responsive Drawer DaisyUI (Desktop Fixed Sidebar + Mobile Slide Drawer) -->
+    <div class="drawer lg:drawer-open">
+      <input id="therapist-drawer" type="checkbox" class="drawer-toggle" />
+
+      <!-- Area Konten Utama -->
+      <div class="drawer-content flex flex-col min-h-screen">
+        <!-- Top Navbar Modular (Inject oleh app.js) -->
+        <div
+          id="app-navbar"
+          data-title="Jadwal Harian Saya"
+          data-role="therapist"
+          data-drawer="therapist-drawer"
+        ></div>
+
+        <!-- Konten Dashboard Terapis -->
+        <main class="p-4 lg:p-8 space-y-6 flex-1">
+          <!-- BAGIAN 1: 3 Kartu Metrik Ringkasan Terapis -->
+          <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- Total Sesi Hari Ini -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-5 flex-row items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-base-content/60 uppercase tracking-wider">
+                    Total Sesi Hari Ini
+                  </p>
+                  <p class="text-3xl font-bold mt-1" x-text="countAll">0</p>
+                  <p class="text-xs text-base-content/60 mt-1">
+                    Jadwal sesi terdaftar
+                  </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <i data-lucide="calendar-check" class="w-6 h-6"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pasien Siap Terapi (Checked-In) -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-5 flex-row items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-base-content/60 uppercase tracking-wider">
+                    Pasien Siap Terapi
+                  </p>
+                  <p class="text-3xl font-bold mt-1 text-primary" x-text="countCheckedIn">0</p>
+                  <p class="text-xs text-base-content/60 mt-1">
+                    Tiba di klinik / siap evaluasi
+                  </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <i data-lucide="user-check" class="w-6 h-6"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sesi Selesai Dievaluasi -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-5 flex-row items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-base-content/60 uppercase tracking-wider">
+                    Sesi Selesai
+                  </p>
+                  <p class="text-3xl font-bold mt-1 text-success" x-text="countCompleted">0</p>
+                  <p class="text-xs text-base-content/60 mt-1">
+                    Catatan evaluasi tersimpan
+                  </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-success/15 text-success flex items-center justify-center shrink-0">
+                  <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- BAGIAN 2: Bar Kontrol Horizontal (Filter Status & Pencarian Cepat Pasien) -->
+          <section class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <!-- Tab Filter Status -->
+              <div class="tabs tabs-boxed bg-base-200/70 p-1 rounded-xl flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  @click="filterStatus = 'ALL'; window.refreshIcons()"
+                  class="tab tab-sm rounded-lg font-medium transition-all"
+                  :class="{ 'tab-active !bg-primary !text-primary-content shadow-sm': filterStatus === 'ALL' }"
+                >
+                  <span>Semua Sesi</span>
+                  <span class="badge badge-xs ml-1.5 opacity-80" x-text="countAll"></span>
+                </button>
+                <button
+                  type="button"
+                  @click="filterStatus = 'CHECKED_IN'; window.refreshIcons()"
+                  class="tab tab-sm rounded-lg font-medium transition-all"
+                  :class="{ 'tab-active !bg-primary !text-primary-content shadow-sm': filterStatus === 'CHECKED_IN' }"
+                >
+                  <span>Siap Terapi</span>
+                  <span class="badge badge-xs ml-1.5 opacity-80" x-text="countCheckedIn"></span>
+                </button>
+                <button
+                  type="button"
+                  @click="filterStatus = 'COMPLETED'; window.refreshIcons()"
+                  class="tab tab-sm rounded-lg font-medium transition-all"
+                  :class="{ 'tab-active !bg-primary !text-primary-content shadow-sm': filterStatus === 'COMPLETED' }"
+                >
+                  <span>Selesai</span>
+                  <span class="badge badge-xs ml-1.5 opacity-80" x-text="countCompleted"></span>
+                </button>
+              </div>
+
+              <!-- Input Pencarian Cepat Pasien / Wali -->
+              <div class="relative w-full md:w-80">
+                <i
+                  data-lucide="search"
+                  class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-base-content/40"
+                ></i>
+                <input
+                  type="text"
+                  x-model="searchQuery"
+                  placeholder="Cari nama pasien anak, panggilan, wali..."
+                  class="input input-bordered input-sm pl-9 pr-8 w-full text-xs rounded-xl"
+                />
+                <button
+                  type="button"
+                  x-show="searchQuery"
+                  @click="searchQuery = ''"
+                  class="btn btn-ghost btn-xs btn-circle absolute right-1.5 top-1/2 -translate-y-1/2 text-base-content/50"
+                >
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- BAGIAN 3: Area Daftar Jadwal Sesi (Grid Card Responsif Desktop 2-3 Kolom) -->
+          <section class="space-y-4">
+            <!-- Grid Card Jadwal Sesi -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              <template x-for="session in mySchedules" :key="session.id">
+                <div
+                  class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden flex flex-col justify-between"
+                >
+                  <div class="card-body p-5 space-y-4">
+                    <!-- Baris Atas: Jam, Ruangan, & Status Badge -->
+                    <div class="flex items-center justify-between pb-3 border-b border-base-200 gap-2">
+                      <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <i data-lucide="clock" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                          <div class="font-bold text-sm text-base-content" x-text="session.timeSlot"></div>
+                          <div class="text-[11px] text-base-content/60 flex items-center gap-1 mt-0.5">
+                            <i data-lucide="map-pin" class="w-3 h-3 text-secondary shrink-0"></i>
+                            <span x-text="session.room"></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <span
+                        class="badge badge-sm font-semibold whitespace-nowrap"
+                        :class="session.statusMeta.badgeClass"
+                        x-text="session.statusMeta.label"
+                      ></span>
+                    </div>
+
+                    <!-- Informasi Pasien Anak & Wali -->
+                    <div class="space-y-3">
+                      <div class="flex items-start justify-between gap-2">
+                        <div>
+                          <h3
+                            class="font-bold text-base text-base-content leading-snug"
+                            x-text="session.patientName"
+                          ></h3>
+                          <p class="text-xs text-base-content/60 mt-0.5">
+                            Panggilan:
+                            <strong class="text-base-content" x-text="session.patientNickname"></strong>
+                            • Wali: <span class="font-medium text-base-content/80" x-text="session.parentName"></span>
+                          </p>
+                        </div>
+                        <span
+                          class="badge badge-outline badge-sm font-medium shrink-0 whitespace-nowrap"
+                          x-text="session.patientAge"
+                        ></span>
+                      </div>
+
+                      <!-- Badge Layanan & Info Sisa Kuota -->
+                      <div class="flex items-center justify-between text-xs pt-0.5">
+                        <span
+                          class="badge badge-sm font-medium whitespace-nowrap"
+                          :class="session.serviceMeta.badgeClass"
+                          x-text="session.serviceMeta.name"
+                        ></span>
+                        <div class="text-xs text-base-content/60">
+                          Sisa Kuota:
+                          <strong
+                            class="text-sm font-bold"
+                            :class="session.remainingQuota <= 1 ? 'text-error' : 'text-base-content'"
+                            x-text="session.remainingQuota"
+                          ></strong>
+                          <span x-text="'/ ' + session.totalQuota + ' sesi'"></span>
+                        </div>
+                      </div>
+
+                      <!-- Kotak Fokus Observasi / Diagnosa Awal Pasien -->
+                      <div class="p-3 rounded-xl bg-base-200/70 border border-base-300/60 text-xs space-y-1">
+                        <div class="font-semibold text-base-content/60 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                          <i data-lucide="file-text" class="w-3 h-3 text-primary"></i>
+                          <span>Fokus Observasi / Diagnosa:</span>
+                        </div>
+                        <p
+                          class="text-base-content/85 leading-relaxed line-clamp-2"
+                          x-text="session.diagnosisNotes"
+                        ></p>
+                      </div>
+                    </div>
+
+                    <!-- Tombol Aksi Kontekstual Berdasarkan Status Kehadiran -->
+                    <div class="pt-2 border-t border-base-200">
+                      <!-- 1. JIKA CHECKED_IN (Pasien Hadir & Siap Terapi) -->
+                      <template x-if="session.status === 'CHECKED_IN'">
+                        <a
+                          :href="'./session-evaluation.html?scheduleId=' + session.id"
+                          class="btn btn-primary btn-sm btn-block gap-2 shadow-sm font-semibold"
+                        >
+                          <i data-lucide="clipboard-pen-line" class="w-4 h-4"></i>
+                          <span>Isi Catatan Evaluasi Sesi</span>
+                          <i data-lucide="arrow-right" class="w-4 h-4 ml-auto"></i>
+                        </a>
+                      </template>
+
+                      <!-- 2. JIKA SCHEDULED (Belum Check-In di Resepsionis) -->
+                      <template x-if="session.status === 'SCHEDULED'">
+                        <div
+                          class="flex items-center justify-between gap-2 bg-warning/10 border border-warning/30 rounded-xl p-2.5 text-xs"
+                        >
+                          <div class="flex items-center gap-1.5 text-base-content/80 truncate">
+                            <i data-lucide="hourglass" class="w-3.5 h-3.5 text-warning shrink-0"></i>
+                            <span class="truncate">Menunggu Check-In di Resepsionis</span>
+                          </div>
+                          <button
+                            type="button"
+                            @click="$store.clinic.checkInPatient(session.id); window.refreshIcons()"
+                            class="btn btn-warning btn-xs font-semibold shrink-0 gap-1"
+                          >
+                            <i data-lucide="user-check" class="w-3 h-3"></i>
+                            Bantu Check-In
+                          </button>
+                        </div>
+                      </template>
+
+                      <!-- 3. JIKA COMPLETED (Selesai Dievaluasi) -->
+                      <template x-if="session.status === 'COMPLETED'">
+                        <a
+                          :href="'./session-evaluation.html?scheduleId=' + session.id"
+                          class="btn btn-outline btn-success btn-sm btn-block gap-2"
+                        >
+                          <i data-lucide="check-circle" class="w-4 h-4"></i>
+                          <span>Lihat / Edit Evaluasi Tersimpan</span>
+                        </a>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- State Kosong / Tidak Ada Data Jadwal -->
+            <template x-if="mySchedules.length === 0">
+              <div class="card bg-base-100 border border-base-300 p-12 text-center space-y-3">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-base-200 text-base-content/40 flex items-center justify-center">
+                  <i data-lucide="calendar-x" class="w-7 h-7"></i>
+                </div>
+                <div class="font-bold text-base text-base-content">
+                  Tidak Ada Jadwal Sesi Ditemukan
+                </div>
+                <p class="text-xs text-base-content/60 max-w-md mx-auto">
+                  Tidak ada jadwal yang cocok dengan filter atau kata kunci pencarian. Coba ubah filter atau pilih akun terapis lain melalui switcher simulasi di navbar atas.
+                </p>
+                <div class="pt-2">
+                  <button
+                    type="button"
+                    @click="filterStatus = 'ALL'; searchQuery = ''; window.refreshIcons()"
+                    class="btn btn-outline btn-sm text-xs rounded-xl"
+                  >
+                    Reset Filter & Pencarian
+                  </button>
+                </div>
+              </div>
+            </template>
+          </section>
+        </main>
+      </div>
+
+      <!-- Sidebar Drawer Modular (Inject oleh app.js) -->
+      <div class="drawer-side z-30">
+        <label for="therapist-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+        <div id="app-sidebar" data-active="schedule" data-role="therapist"></div>
+      </div>
+    </div>
+  </body>
+</html>

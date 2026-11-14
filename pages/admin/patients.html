@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="id" data-theme="emerald">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Pasien Anak — ESSA Kids Therapy</title>
+
+    <!-- 1. Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 2. DaisyUI & Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3. Konfigurasi Tailwind & Custom CSS -->
+    <script src="../../assets/js/config/tailwind.config.js"></script>
+    <link rel="stylesheet" href="../../assets/css/custom.css" />
+
+    <!-- 4. Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 5. App Bootstrapper (ES Module) -->
+    <script type="module" src="../../assets/js/app.js"></script>
+
+    <!-- 6. Alpine.js CDN -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
+    ></script>
+  </head>
+  <body
+    class="bg-base-200 font-sans text-base-content antialiased min-h-screen"
+    x-data="{
+          searchQuery: '',
+          filterGender: 'ALL',
+          isRegisterModalOpen: false,
+          selectedPatientDetail: null,
+          form: {
+              fullName: '',
+              nickname: '',
+              birthDate: '',
+              gender: 'L',
+              parentName: '',
+              parentPhone: '',
+              diagnosisNotes: '',
+              initialServiceId: 'SPEECH',
+              initialPackageTierId: 'PKG_REG_4'
+          },
+          get filteredPatients() {
+              return $store.clinic.enrichedPatients.filter(p => {
+                  const matchQuery = p.fullName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                     p.nickname.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                     p.parentName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                     p.id.toLowerCase().includes(this.searchQuery.toLowerCase());
+                  const matchGender = this.filterGender === 'ALL' || p.gender === this.filterGender;
+                  return matchQuery && matchGender;
+              });
+          },
+          submitRegistration() {
+              const success = $store.clinic.registerPatient(this.form);
+              if (success) {
+                  this.isRegisterModalOpen = false;
+                  this.form = {
+                      fullName: '', nickname: '', birthDate: '', gender: 'L',
+                      parentName: '', parentPhone: '', diagnosisNotes: '',
+                      initialServiceId: 'SPEECH', initialPackageTierId: 'PKG_REG_4'
+                  };
+              }
+          }
+      }"
+  >
+    <!-- Toast Notification -->
+    <div
+      class="toast toast-top toast-end z-50"
+      x-cloak
+      x-show="$store.ui.toastMessage"
+      x-transition
+    >
+      <div
+        class="alert shadow-lg text-sm font-medium"
+        :class="$store.ui.toastType === 'error' ? 'alert-error' : 'alert-success'"
+      >
+        <span x-text="$store.ui.toastMessage"></span>
+      </div>
+    </div>
+
+    <!-- Layout Drawer Utama -->
+    <div class="drawer lg:drawer-open">
+      <input id="admin-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content flex flex-col min-h-screen">
+        <!-- Top Navbar (Di-inject otomatis dengan judul Data Pasien Anak) -->
+        <div id="app-navbar" data-title="Data Pasien Anak"></div>
+
+        <!-- Konten Utama -->
+        <main class="p-4 lg:p-8 space-y-6 flex-1">
+          <!-- Header Bar: Pencarian, Filter, & Tombol Pendaftaran Baru -->
+          <section class="card bg-base-100 border border-base-300 shadow-sm">
+            <div
+              class="card-body p-4 lg:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
+              <!-- Pencarian & Filter -->
+              <div
+                class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1"
+              >
+                <!-- Input Cari Nama Anak / Orang Tua / ID -->
+                <label
+                  class="input input-bordered input-sm flex items-center gap-2 flex-1 max-w-md"
+                >
+                  <i
+                    data-lucide="search"
+                    class="w-4 h-4 text-base-content/50"
+                  ></i>
+                  <input
+                    type="text"
+                    x-model="searchQuery"
+                    placeholder="Cari nama anak, panggilan, atau wali..."
+                    class="grow text-xs"
+                  />
+                </label>
+
+                <!-- Filter Jenis Kelamin -->
+                <select
+                  x-model="filterGender"
+                  class="select select-bordered select-sm text-xs w-full sm:w-44"
+                >
+                  <option value="ALL">Semua Gender</option>
+                  <option value="L">Laki-laki (L)</option>
+                  <option value="P">Perempuan (P)</option>
+                </select>
+              </div>
+
+              <!-- Tombol Buka Modal Pendaftaran Pasien -->
+              <button
+                type="button"
+                @click="isRegisterModalOpen = true; window.refreshIcons()"
+                class="btn btn-primary btn-sm gap-2"
+              >
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                <span>Daftar Pasien Baru</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- Tabel Daftar Pasien Anak -->
+          <section class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-0">
+              <div class="overflow-x-auto">
+                <table class="table table-zebra align-middle">
+                  <thead>
+                    <tr
+                      class="text-xs uppercase text-base-content/60 bg-base-200/50"
+                    >
+                      <th class="pl-6">ID & Profil Anak</th>
+                      <th>Usia & Tgl Lahir</th>
+                      <th>Orang Tua / Wali</th>
+                      <th>Catatan Observasi / Diagnosa</th>
+                      <th>Paket & Sisa Kuota</th>
+                      <th class="pr-6 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template
+                      x-for="patient in filteredPatients"
+                      :key="patient.id"
+                    >
+                      <tr class="hover">
+                        <!-- ID & Profil Anak -->
+                        <td class="pl-6">
+                          <div class="flex items-center gap-3">
+                            <div
+                              class="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0"
+                              :class="patient.gender === 'L' ? 'bg-info/15 text-info' : 'bg-secondary/15 text-secondary'"
+                              x-text="patient.nickname.slice(0, 2).toUpperCase()"
+                            ></div>
+                            <div>
+                              <div class="flex items-center gap-2">
+                                <span
+                                  class="font-bold text-sm"
+                                  x-text="patient.fullName"
+                                ></span>
+                                <span
+                                  class="badge badge-ghost badge-xs font-mono"
+                                  x-text="patient.id"
+                                ></span>
+                              </div>
+                              <div class="text-xs text-base-content/60 mt-0.5">
+                                Panggilan:
+                                <strong x-text="patient.nickname"></strong>
+                                (<span
+                                  x-text="patient.gender === 'L' ? 'Laki-laki' : 'Perempuan'"
+                                ></span
+                                >)
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Usia & Tanggal Lahir -->
+                        <td>
+                          <div
+                            class="badge badge-outline badge-sm font-semibold"
+                            x-text="patient.ageLabel"
+                          ></div>
+                          <div
+                            class="text-xs text-base-content/60 mt-1"
+                            x-text="patient.formattedBirthDate"
+                          ></div>
+                        </td>
+
+                        <!-- Orang Tua / Wali -->
+                        <td>
+                          <div
+                            class="font-medium text-sm"
+                            x-text="patient.parentName"
+                          ></div>
+                          <div
+                            class="text-xs text-base-content/60 font-mono"
+                            x-text="patient.parentPhone"
+                          ></div>
+                        </td>
+
+                        <!-- Catatan Observasi -->
+                        <td class="max-w-xs">
+                          <p
+                            class="text-xs text-base-content/80 line-clamp-2 leading-relaxed"
+                            x-text="patient.diagnosisNotes"
+                          ></p>
+                        </td>
+
+                        <!-- Paket Aktif & Sisa Kuota -->
+                        <td>
+                          <div class="space-y-1">
+                            <template
+                              x-for="pkg in patient.activePackages"
+                              :key="pkg.id"
+                            >
+                              <div class="flex items-center gap-1.5">
+                                <span
+                                  class="badge badge-xs font-medium py-2"
+                                  :class="pkg.serviceMeta.badgeClass"
+                                  x-text="pkg.serviceMeta.shortName"
+                                ></span>
+                                <span
+                                  class="text-xs font-bold"
+                                  :class="pkg.remainingQuota <= 1 ? 'text-error' : 'text-base-content'"
+                                  x-text="'Sisa ' + pkg.remainingQuota + '/' + pkg.totalQuota"
+                                ></span>
+                              </div>
+                            </template>
+                            <template
+                              x-if="patient.activePackages.length === 0"
+                            >
+                              <span class="text-xs text-base-content/40 italic"
+                                >Belum ada paket aktif</span
+                              >
+                            </template>
+                          </div>
+                        </td>
+
+                        <!-- Tombol Detail Rekam Evaluasi -->
+                        <td class="pr-6 text-right">
+                          <button
+                            type="button"
+                            @click="selectedPatientDetail = patient; window.refreshIcons()"
+                            class="btn btn-ghost btn-xs border border-base-300 gap-1"
+                          >
+                            Detail & Evaluasi
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+
+                    <!-- Jika Hasil Pencarian Kosong -->
+                    <template x-if="filteredPatients.length === 0">
+                      <tr>
+                        <td
+                          colspan="6"
+                          class="text-center py-10 text-base-content/50"
+                        >
+                          <p class="font-semibold text-sm">
+                            Data pasien anak tidak ditemukan
+                          </p>
+                          <p class="text-xs mt-1">
+                            Coba gunakan kata kunci pencarian lain atau
+                            daftarkan pasien baru.
+                          </p>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <!-- Sidebar Drawer (Otomatis aktif pada menu 'patients') -->
+      <div class="drawer-side z-30">
+        <label
+          for="admin-drawer"
+          aria-label="close sidebar"
+          class="drawer-overlay"
+        ></label>
+        <div id="app-sidebar" data-active="patients"></div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 1: FORM PENDAFTARAN PASIEN ANAK BARU
+         ===================================================================== -->
+    <div class="modal" :class="{ 'modal-open': isRegisterModalOpen }" x-cloak>
+      <div class="modal-box max-w-2xl border border-base-300">
+        <div
+          class="flex items-center justify-between pb-3 border-b border-base-200"
+        >
+          <div>
+            <h3 class="font-bold text-lg">Formulir Pendaftaran Pasien Anak</h3>
+            <p class="text-xs text-base-content/60">
+              Lengkapi profil tumbuh kembang anak dan paket terapi perdananya.
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="isRegisterModalOpen = false"
+            class="btn btn-sm btn-circle btn-ghost"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form @submit.prevent="submitRegistration()" class="space-y-4 mt-4">
+          <!-- Grid Data Anak -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Nama Lengkap Anak *</span
+                ></label
+              >
+              <input
+                type="text"
+                x-model="form.fullName"
+                required
+                placeholder="Contoh: Keenan Alfarizqi"
+                class="input input-bordered input-sm"
+              />
+            </div>
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Nama Panggilan *</span
+                ></label
+              >
+              <input
+                type="text"
+                x-model="form.nickname"
+                required
+                placeholder="Contoh: Keenan"
+                class="input input-bordered input-sm"
+              />
+            </div>
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Tanggal Lahir Anak *</span
+                ></label
+              >
+              <input
+                type="date"
+                x-model="form.birthDate"
+                required
+                class="input input-bordered input-sm"
+              />
+            </div>
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Jenis Kelamin *</span
+                ></label
+              >
+              <select
+                x-model="form.gender"
+                class="select select-bordered select-sm"
+              >
+                <option value="L">Laki-laki (L)</option>
+                <option value="P">Perempuan (P)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Grid Data Orang Tua / Wali -->
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-base-200"
+          >
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Nama Orang Tua / Wali *</span
+                ></label
+              >
+              <input
+                type="text"
+                x-model="form.parentName"
+                required
+                placeholder="Contoh: Ibu Sarah Wijaya"
+                class="input input-bordered input-sm"
+              />
+            </div>
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Nomor WhatsApp Aktif *</span
+                ></label
+              >
+              <input
+                type="tel"
+                x-model="form.parentPhone"
+                required
+                placeholder="Contoh: 0812-3456-7890"
+                class="input input-bordered input-sm"
+              />
+            </div>
+          </div>
+
+          <!-- Catatan Diagnosa / Keluhan Awal -->
+          <div class="form-control">
+            <label class="label py-1"
+              ><span class="label-text text-xs font-semibold"
+                >Catatan Observasi / Keluhan Tumbuh Kembang</span
+              ></label
+            >
+            <textarea
+              x-model="form.diagnosisNotes"
+              rows="2"
+              placeholder="Contoh: Kontak mata singkat, belum merespons saat dipanggil namanya..."
+              class="textarea textarea-bordered textarea-sm"
+            ></textarea>
+          </div>
+
+          <!-- Aktivasi Paket Terapi Perdana -->
+          <div
+            class="bg-base-200/70 p-3.5 rounded-xl border border-base-300 space-y-3"
+          >
+            <div
+              class="text-xs font-bold uppercase tracking-wider text-primary"
+            >
+              Aktivasi Paket Terapi Perdana
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="form-control">
+                <label class="label py-0.5"
+                  ><span class="label-text text-xs"
+                    >Layanan Terapi Utama</span
+                  ></label
+                >
+                <select
+                  x-model="form.initialServiceId"
+                  class="select select-bordered select-sm text-xs"
+                >
+                  <option value="SPEECH">Speech Therapy (Terapi Wicara)</option>
+                  <option value="SENSORY">
+                    Sensory Integration (Sensori Integrasi)
+                  </option>
+                  <option value="PHYSIO">Physiotherapy (Fisioterapi)</option>
+                  <option value="OCCUPATIONAL">
+                    Occupational Therapy (Terapi Okupasi)
+                  </option>
+                </select>
+              </div>
+              <div class="form-control">
+                <label class="label py-0.5"
+                  ><span class="label-text text-xs"
+                    >Pilihan Kuota Paket</span
+                  ></label
+                >
+                <select
+                  x-model="form.initialPackageTierId"
+                  class="select select-bordered select-sm text-xs"
+                >
+                  <option value="PKG_REG_4">Paket Reguler (4 Sesi)</option>
+                  <option value="PKG_INT_8">Paket Intensif (8 Sesi)</option>
+                  <option value="PKG_OPT_12">Paket Optimal (12 Sesi)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-action pt-2">
+            <button
+              type="button"
+              @click="isRegisterModalOpen = false"
+              class="btn btn-ghost btn-sm"
+            >
+              Batal
+            </button>
+            <button type="submit" class="btn btn-primary btn-sm">
+              Simpan & Aktifkan Paket
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 2: DETAIL PROFIL & RIWAYAT EVALUASI PERKEMBANGAN ANAK
+         ===================================================================== -->
+    <div
+      class="modal"
+      :class="{ 'modal-open': selectedPatientDetail !== null }"
+      x-cloak
+    >
+      <div
+        class="modal-box max-w-xl border border-base-300"
+        x-show="selectedPatientDetail"
+      >
+        <div
+          class="flex items-center justify-between pb-3 border-b border-base-200"
+        >
+          <div>
+            <span
+              class="badge badge-primary badge-xs font-mono mb-1"
+              x-text="selectedPatientDetail?.id"
+            ></span>
+            <h3
+              class="font-bold text-lg"
+              x-text="selectedPatientDetail?.fullName"
+            ></h3>
+            <p class="text-xs text-base-content/60">
+              Usia:
+              <span
+                class="font-semibold"
+                x-text="selectedPatientDetail?.ageLabel"
+              ></span>
+              • Wali: <span x-text="selectedPatientDetail?.parentName"></span>
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="selectedPatientDetail = null"
+            class="btn btn-sm btn-circle btn-ghost"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="space-y-4 mt-4 text-sm">
+          <!-- Box Observasi Awal -->
+          <div class="p-3 rounded-xl bg-base-200/70 border border-base-300">
+            <div class="text-xs font-bold uppercase text-base-content/60 mb-1">
+              Catatan Observasi / Diagnosa Awal:
+            </div>
+            <p
+              class="text-xs leading-relaxed"
+              x-text="selectedPatientDetail?.diagnosisNotes"
+            ></p>
+          </div>
+
+          <!-- Riwayat Catatan Evaluasi Terapis -->
+          <div>
+            <div
+              class="font-bold text-xs uppercase tracking-wider text-base-content/60 mb-2"
+            >
+              Riwayat Evaluasi Perkembangan Sesi (<span
+                x-text="selectedPatientDetail?.evaluations?.length || 0"
+              ></span
+              >)
+            </div>
+
+            <div class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+              <template
+                x-for="ev in selectedPatientDetail?.evaluations"
+                :key="ev.id"
+              >
+                <div
+                  class="p-3 rounded-xl border border-base-300 bg-base-100 space-y-1.5"
+                >
+                  <div class="flex items-center justify-between">
+                    <span
+                      class="badge badge-xs py-2 font-medium"
+                      :class="ev.serviceMeta?.badgeClass"
+                      x-text="ev.serviceMeta?.name"
+                    ></span>
+                    <span
+                      class="text-[11px] text-base-content/60"
+                      x-text="ev.formattedDate + ' • ' + ev.therapistName"
+                    ></span>
+                  </div>
+                  <div
+                    class="text-xs font-semibold text-primary"
+                    x-text="'Mood Anak: ' + ev.moodRating"
+                  ></div>
+                  <p
+                    class="text-xs text-base-content/80"
+                    x-text="ev.progressNotes"
+                  ></p>
+                  <div
+                    class="text-[11px] bg-success/10 text-success-content p-2 rounded-lg"
+                  >
+                    <strong>PR Orang Tua di Rumah:</strong>
+                    <span x-text="ev.homeRecommendation"></span>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="!selectedPatientDetail?.evaluations?.length">
+                <div
+                  class="text-center py-6 bg-base-200/40 rounded-xl text-xs text-base-content/50"
+                >
+                  Belum ada catatan evaluasi sesi dari terapis untuk pasien ini.
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-action">
+          <button
+            type="button"
+            @click="selectedPatientDetail = null"
+            class="btn btn-sm"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

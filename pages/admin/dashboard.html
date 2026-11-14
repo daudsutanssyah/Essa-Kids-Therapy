@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="id" data-theme="emerald">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Operasional — ESSA Kids Therapy</title>
+
+    <!-- 1. Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 2. DaisyUI & Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3. Konfigurasi Tailwind & Custom CSS -->
+    <script src="../../assets/js/config/tailwind.config.js"></script>
+    <link rel="stylesheet" href="../../assets/css/custom.css" />
+
+    <!-- 4. Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 5. App Bootstrapper (ES Module) -->
+    <script type="module" src="../../assets/js/app.js"></script>
+
+    <!-- 6. Alpine.js CDN -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
+    ></script>
+  </head>
+  <body
+    class="bg-base-200 font-sans text-base-content antialiased min-h-screen"
+    x-data="{ selectedService: 'ALL' }"
+  >
+    <!-- Toast Notification Mengambang -->
+    <div
+      class="toast toast-top toast-end z-50"
+      x-cloak
+      x-show="$store.ui.toastMessage"
+      x-transition
+    >
+      <div
+        class="alert shadow-lg text-sm font-medium"
+        :class="$store.ui.toastType === 'error' ? 'alert-error' : 'alert-success'"
+      >
+        <span x-text="$store.ui.toastMessage"></span>
+      </div>
+    </div>
+
+    <!-- Struktur Responsive Drawer DaisyUI (Desktop Fixed Sidebar + Mobile Slide Drawer) -->
+    <div class="drawer lg:drawer-open">
+      <input id="admin-drawer" type="checkbox" class="drawer-toggle" />
+
+      <!-- Area Konten Utama -->
+      <div class="drawer-content flex flex-col min-h-screen">
+        <!-- Top Navbar (Di-inject otomatis oleh app.js) -->
+        <div id="app-navbar" data-title="Dashboard Operasional"></div>
+
+        <!-- Konten Dashboard -->
+        <main class="p-4 lg:p-8 space-y-6 flex-1">
+          <!-- BAGIAN 1: 4 Kartu Metrik Ringkasan -->
+          <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <!-- Total Pasien Aktif -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-5 flex-row items-center justify-between">
+                <div>
+                  <p
+                    class="text-xs font-medium text-base-content/60 uppercase tracking-wider"
+                  >
+                    Total Pasien Anak
+                  </p>
+                  <p
+                    class="text-3xl font-bold mt-1"
+                    x-text="$store.clinic.metrics.totalPatients"
+                  >
+                    0
+                  </p>
+                  <p class="text-xs text-base-content/60 mt-1">
+                    Terdaftar di klinik
+                  </p>
+                </div>
+                <div
+                  class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center"
+                >
+                  <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Jadwal Sesi Hari Ini -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-5 flex-row items-center justify-between">
+                <div>
+                  <p
+                    class="text-xs font-medium text-base-content/60 uppercase tracking-wider"
+                  >
+                    Jadwal Hari Ini
+                  </p>
+                  <p
+                    class="text-3xl font-bold mt-1"
+                    x-text="$store.clinic.metrics.todaySessions"
+                  >
+                    0
+                  </p>
+                  <p class="text-xs text-base-content/60 mt-1">
+                    Total sesi terjadwal
+                  </p>
+                </div>
+                <div
+                  class="w-12 h-12 rounded-2xl bg-info/10 text-info flex items-center justify-center"
+                >
+                  <i data-lucide="calendar-check-2" class="w-6 h-6"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pasien Hadir / Check-In -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-5 flex-row items-center justify-between">
+                <div>
+                  <p
+                    class="text-xs font-medium text-base-content/60 uppercase tracking-wider"
+                  >
+                    Sesi Terlaksana
+                  </p>
+                  <p
+                    class="text-3xl font-bold mt-1 text-success"
+                    x-text="$store.clinic.metrics.checkedInToday"
+                  >
+                    0
+                  </p>
+                  <p class="text-xs text-base-content/60 mt-1">
+                    Hadir & selesai hari ini
+                  </p>
+                </div>
+                <div
+                  class="w-12 h-12 rounded-2xl bg-success/10 text-success flex items-center justify-center"
+                >
+                  <i data-lucide="user-check" class="w-6 h-6"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Peringatan Kuota Menipis -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+              <div class="card-body p-5 flex-row items-center justify-between">
+                <div>
+                  <p
+                    class="text-xs font-medium text-base-content/60 uppercase tracking-wider"
+                  >
+                    Kuota Hampir Habis
+                  </p>
+                  <p
+                    class="text-3xl font-bold mt-1 text-warning"
+                    x-text="$store.clinic.metrics.lowQuotaPackages"
+                  >
+                    0
+                  </p>
+                  <p class="text-xs text-base-content/60 mt-1">
+                    Sisa &le; 2 sesi terapi
+                  </p>
+                </div>
+                <div
+                  class="w-12 h-12 rounded-2xl bg-warning/15 text-warning flex items-center justify-center"
+                >
+                  <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- BAGIAN 2: Grid Antrean Jadwal Harian (Kiri) & Pengingat Kuota (Kanan) -->
+          <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <!-- Kolom Kiri (2/3): Tabel Antrean & Check-In Sesi Hari Ini -->
+            <div
+              class="xl:col-span-2 card bg-base-100 border border-base-300 shadow-sm"
+            >
+              <div class="card-body p-5">
+                <!-- Header Tabel & Filter Layanan -->
+                <div
+                  class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-base-200"
+                >
+                  <div>
+                    <h2 class="font-bold text-base">
+                      Antrean & Jadwal Sesi Hari Ini
+                    </h2>
+                    <p class="text-xs text-base-content/60">
+                      Klik tombol Check-In saat pasien anak tiba di klinik
+                      (otomatis memotong 1 kuota paket).
+                    </p>
+                  </div>
+
+                  <!-- Filter Kategori Layanan -->
+                  <select
+                    x-model="selectedService"
+                    class="select select-bordered select-sm text-xs w-full sm:w-48"
+                  >
+                    <option value="ALL">Semua Layanan (4)</option>
+                    <option value="PHYSIO">Fisioterapi</option>
+                    <option value="SENSORY">Sensori Integrasi</option>
+                    <option value="SPEECH">Terapi Wicara</option>
+                    <option value="OCCUPATIONAL">Terapi Okupasi</option>
+                  </select>
+                </div>
+
+                <!-- Tabel Jadwal -->
+                <div class="overflow-x-auto mt-2">
+                  <table class="table table-zebra align-middle w-full">
+                    <thead>
+                      <tr class="text-xs uppercase text-base-content/60">
+                        <th class="whitespace-nowrap">Jam & Ruangan</th>
+                        <th>Pasien Anak</th>
+                        <th class="whitespace-nowrap">Layanan & Terapis</th>
+                        <th class="whitespace-nowrap">Sisa Kuota</th>
+                        <th class="whitespace-nowrap">Status / Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template
+                        x-for="item in $store.clinic.enrichedSchedules.filter(s => selectedService === 'ALL' || s.serviceId === selectedService)"
+                        :key="item.id"
+                      >
+                        <tr>
+                          <!-- Jam & Ruangan -->
+                          <td class="whitespace-nowrap">
+                            <div
+                              class="font-bold text-xs"
+                              x-text="item.timeSlot"
+                            ></div>
+                            <div
+                              class="text-xs text-base-content/60"
+                              x-text="item.room"
+                            ></div>
+                          </td>
+
+                          <!-- Nama Anak & Panggilan -->
+                          <td>
+                            <div
+                              class="font-semibold text-sm"
+                              x-text="item.patientName"
+                            ></div>
+                            <div class="text-xs text-base-content/60">
+                              Panggilan:
+                              <span
+                                class="font-medium text-base-content"
+                                x-text="item.patientNickname"
+                              ></span>
+                            </div>
+                          </td>
+
+                          <!-- Badge Layanan & Nama Terapis -->
+                          <td class="whitespace-nowrap">
+                            <span
+                              class="badge badge-sm font-medium whitespace-nowrap mb-1"
+                              :class="item.serviceMeta.badgeClass"
+                              x-text="item.serviceMeta.name"
+                            ></span>
+                            <div
+                              class="text-xs text-base-content/70"
+                              x-text="item.therapistName"
+                            ></div>
+                          </td>
+
+                          <!-- Sisa Kuota Paket -->
+                          <td class="whitespace-nowrap">
+                            <div class="flex items-center gap-1.5">
+                              <span
+                                class="font-bold text-sm"
+                                :class="item.remainingQuota <= 1 ? 'text-error' : 'text-base-content'"
+                                x-text="item.remainingQuota"
+                              ></span>
+                              <span
+                                class="text-xs text-base-content/60"
+                                x-text="'/ ' + item.totalQuota + ' sesi'"
+                              ></span>
+                            </div>
+                          </td>
+
+                          <!-- Status & Tombol Check-In -->
+                          <td class="whitespace-nowrap">
+                            <div class="flex items-center gap-2">
+                              <!-- Jika masih SCHEDULED, tampilkan tombol Check-In -->
+                              <template x-if="item.status === 'SCHEDULED'">
+                                <button
+                                  type="button"
+                                  @click="$store.clinic.checkInPatient(item.id)"
+                                  class="btn btn-primary btn-xs gap-1"
+                                >
+                                  Check-In Hadir
+                                </button>
+                              </template>
+
+                              <!-- Jika sudah CHECKED_IN atau COMPLETED, tampilkan badge status -->
+                              <template x-if="item.status !== 'SCHEDULED'">
+                                <span
+                                  class="badge badge-sm font-medium whitespace-nowrap"
+                                  :class="item.statusMeta.badgeClass"
+                                  x-text="item.statusMeta.label"
+                                ></span>
+                              </template>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kolom Kanan (1/3): Pengingat Perpanjangan Paket & Pintasan -->
+            <div class="space-y-6">
+              <!-- Kartu Pengingat Kuota Menipis -->
+              <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-5">
+                  <div
+                    class="flex items-center justify-between pb-3 border-b border-base-200"
+                  >
+                    <h3 class="font-bold text-base flex items-center gap-2">
+                      <i
+                        data-lucide="bell-ring"
+                        class="w-4 h-4 text-warning"
+                      ></i>
+                      Pengingat Kuota Paket
+                    </h3>
+                    <span
+                      class="badge badge-warning badge-sm font-semibold whitespace-nowrap"
+                      x-text="$store.clinic.lowQuotaAlerts.length + ' Pasien'"
+                    ></span>
+                  </div>
+
+                  <p class="text-xs text-base-content/60 mt-1">
+                    Daftar orang tua/wali yang perlu diingatkan untuk
+                    perpanjangan paket terapi:
+                  </p>
+
+                  <div class="space-y-3 mt-3">
+                    <template
+                      x-for="alert in $store.clinic.lowQuotaAlerts"
+                      :key="alert.id"
+                    >
+                      <div
+                        class="p-3 rounded-xl bg-base-200/70 border border-base-300 flex items-center justify-between gap-2"
+                      >
+                        <div>
+                          <div
+                            class="font-semibold text-sm"
+                            x-text="alert.patientName"
+                          ></div>
+                          <div
+                            class="text-xs text-base-content/60"
+                            x-text="alert.serviceName + ' • ' + alert.parentPhone"
+                          ></div>
+                        </div>
+                        <div class="text-right shrink-0">
+                          <span
+                            class="badge badge-error badge-sm font-bold whitespace-nowrap"
+                            x-text="'Sisa ' + alert.remainingQuota + ' Sesi'"
+                          ></span>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+
+                  <div class="mt-4 pt-2">
+                    <a
+                      href="./packages.html"
+                      class="btn btn-outline btn-sm btn-block text-xs"
+                    >
+                      Kelola Semua Paket Kuota
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Kartu Aksi Cepat Resepsionis -->
+              <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-5 space-y-2.5">
+                  <h3
+                    class="font-bold text-sm text-base-content/70 uppercase tracking-wider mb-1"
+                  >
+                    Pintasan Resepsionis
+                  </h3>
+                  <a
+                    href="./patients.html"
+                    class="btn btn-primary btn-sm btn-block justify-start gap-2"
+                  >
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    Daftar Pasien Anak Baru
+                  </a>
+                  <a
+                    href="./schedules.html"
+                    class="btn btn-outline btn-sm btn-block justify-start gap-2"
+                  >
+                    <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                    Atur Jadwal Sesi Terapi
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <!-- Sidebar Drawer (Di-inject otomatis oleh app.js berdasarkan atribut data-active) -->
+      <div class="drawer-side z-30">
+        <label
+          for="admin-drawer"
+          aria-label="close sidebar"
+          class="drawer-overlay"
+        ></label>
+        <div id="app-sidebar" data-active="dashboard"></div>
+      </div>
+    </div>
+  </body>
+</html>

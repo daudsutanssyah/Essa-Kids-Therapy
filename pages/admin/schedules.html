@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="id" data-theme="emerald">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jadwal & Ruangan — ESSA Kids Therapy</title>
+
+    <!-- 1. Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 2. DaisyUI & Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3. Konfigurasi Tailwind & Custom CSS -->
+    <script src="../../assets/js/config/tailwind.config.js"></script>
+    <link rel="stylesheet" href="../../assets/css/custom.css" />
+
+    <!-- 4. Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 5. App Bootstrapper (ES Module) -->
+    <script type="module" src="../../assets/js/app.js"></script>
+
+    <!-- 6. Alpine.js CDN -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
+    ></script>
+  </head>
+  <body
+    class="bg-base-200 font-sans text-base-content antialiased min-h-screen"
+    x-data="{
+          selectedDate: (() => {
+              const d = new Date();
+              return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+          })(),
+          filterTherapist: 'ALL',
+          filterService: 'ALL',
+          isBookingModalOpen: false,
+          form: {
+              date: '',
+              timeSlot: '09:00 - 10:00',
+              patientId: '',
+              packageId: '',
+              serviceId: '',
+              therapistId: '',
+              room: ''
+          },
+          get filteredSchedules() {
+              return $store.clinic.enrichedSchedules.filter(s => {
+                  const matchDate = !this.selectedDate || s.date === this.selectedDate;
+                  const matchTherapist = this.filterTherapist === 'ALL' || s.therapistId === this.filterTherapist;
+                  const matchService = this.filterService === 'ALL' || s.serviceId === this.filterService;
+                  return matchDate && matchTherapist && matchService;
+              });
+          },
+          get patientActivePackages() {
+              if (!this.form.patientId) return [];
+              return $store.clinic.enrichedPackages.filter(
+                  p => p.patientId === this.form.patientId && p.remainingQuota > 0
+              );
+          },
+          get liveConflict() {
+              if (!this.isBookingModalOpen) return { hasConflict: false, message: '' };
+              return $store.clinic.checkScheduleConflict({
+                  date: this.form.date,
+                  timeSlot: this.form.timeSlot,
+                  therapistId: this.form.therapistId,
+                  room: this.form.room,
+                  patientId: this.form.patientId
+              });
+          },
+          openBookingModal() {
+              this.form.date = this.selectedDate;
+              this.form.timeSlot = $store.clinic.timeSlots[1] || '09:00 - 10:00';
+              if ($store.clinic.patients.length > 0) {
+                  this.form.patientId = $store.clinic.patients[0].id;
+                  this.onPatientChange();
+              }
+              this.isBookingModalOpen = true;
+              window.refreshIcons();
+          },
+          onPatientChange() {
+              const pkgs = this.patientActivePackages;
+              if (pkgs.length > 0) {
+                  this.form.packageId = pkgs[0].id;
+                  this.onPackageChange();
+              } else {
+                  this.form.packageId = '';
+                  this.form.serviceId = '';
+              }
+          },
+          onPackageChange() {
+              const pkg = $store.clinic.packages.find(p => p.id === this.form.packageId);
+              if (pkg) {
+                  this.form.serviceId = pkg.serviceId;
+                  // Otomatis pilihkan terapis sesuai spesialisasi layanan
+                  const matchingTherapist = $store.clinic.therapists.find(t => t.specialty === pkg.serviceId);
+                  if (matchingTherapist) this.form.therapistId = matchingTherapist.id;
+                  // Otomatis pilihkan ruangan sesuai layanan
+                  const matchingRoom = $store.clinic.clinicRooms.find(r => r.defaultService === pkg.serviceId);
+                  if (matchingRoom) this.form.room = matchingRoom.name;
+              }
+          },
+          submitBooking() {
+              const ok = $store.clinic.createSchedule(this.form);
+              if (ok) {
+                  this.isBookingModalOpen = false;
+              }
+          },
+          isTherapistBusy(therapistId, slot) {
+              return $store.clinic.schedules.some(
+                  s => s.date === this.selectedDate &&
+                       s.timeSlot === slot &&
+                       s.therapistId === therapistId &&
+                       s.status !== 'CANCELLED'
+              );
+          }
+      }"
+  >
+    <!-- Toast Notification -->
+    <div
+      class="toast toast-top toast-end z-50"
+      x-cloak
+      x-show="$store.ui.toastMessage"
+      x-transition
+    >
+      <div
+        class="alert shadow-lg text-sm font-medium"
+        :class="$store.ui.toastType === 'error' ? 'alert-error' : ($store.ui.toastType === 'info' ? 'alert-info' : 'alert-success')"
+      >
+        <span x-text="$store.ui.toastMessage"></span>
+      </div>
+    </div>
+
+    <!-- Layout Drawer Utama -->
+    <div class="drawer lg:drawer-open">
+      <input id="admin-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content flex flex-col min-h-screen">
+        <!-- Top Navbar -->
+        <div
+          id="app-navbar"
+          data-title="Manajemen Jadwal & Ruangan Terapi"
+        ></div>
+
+        <!-- Konten Utama -->
+        <main class="p-4 lg:p-8 space-y-6 flex-1">
+          <!-- BAGIAN 1: Filter Tanggal, Terapis, & Tombol Booking Sesi -->
+          <section class="card bg-base-100 border border-base-300 shadow-sm">
+            <div
+              class="card-body p-4 lg:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+            >
+              <div
+                class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1"
+              >
+                <!-- Pilih Tanggal Jadwal -->
+                <div class="form-control">
+                  <label
+                    class="input input-bordered input-sm flex items-center gap-2"
+                  >
+                    <i data-lucide="calendar" class="w-4 h-4 text-primary"></i>
+                    <input
+                      type="date"
+                      x-model="selectedDate"
+                      class="text-xs font-semibold"
+                    />
+                  </label>
+                </div>
+
+                <!-- Filter Terapis -->
+                <select
+                  x-model="filterTherapist"
+                  class="select select-bordered select-sm text-xs w-full sm:w-52"
+                >
+                  <option value="ALL">Semua Terapis (4)</option>
+                  <template x-for="t in $store.clinic.therapists" :key="t.id">
+                    <option :value="t.id" x-text="t.name"></option>
+                  </template>
+                </select>
+
+                <!-- Filter Layanan -->
+                <select
+                  x-model="filterService"
+                  class="select select-bordered select-sm text-xs w-full sm:w-48"
+                >
+                  <option value="ALL">Semua Layanan Terapi</option>
+                  <option value="PHYSIO">Physiotherapy</option>
+                  <option value="SENSORY">Sensory Integration</option>
+                  <option value="SPEECH">Speech Therapy</option>
+                  <option value="OCCUPATIONAL">Occupational Therapy</option>
+                </select>
+              </div>
+
+              <!-- Tombol Buka Modal Booking Jadwal -->
+              <button
+                type="button"
+                @click="openBookingModal()"
+                class="btn btn-primary btn-sm gap-2"
+              >
+                <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                <span>Jadwalkan Sesi Baru</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- BAGIAN 2: Grid Tabel Jadwal (Kiri 2/3) & Matriks Ketersediaan Terapis (Kanan 1/3) -->
+          <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <!-- Kolom Kiri (2/3): Daftar Jadwal Sesi pada Tanggal Terpilih -->
+            <div
+              class="xl:col-span-2 card bg-base-100 border border-base-300 shadow-sm"
+            >
+              <div class="card-body p-5">
+                <div
+                  class="flex items-center justify-between pb-3 border-b border-base-200"
+                >
+                  <div>
+                    <h2 class="font-bold text-base">Daftar Sesi Terjadwal</h2>
+                    <p class="text-xs text-base-content/60">
+                      Menampilkan jadwal untuk tanggal
+                      <strong x-text="selectedDate"></strong>
+                    </p>
+                  </div>
+                  <span
+                    class="badge badge-primary badge-outline font-bold text-xs"
+                    x-text="filteredSchedules.length + ' Sesi'"
+                  ></span>
+                </div>
+
+                <div class="overflow-x-auto mt-2">
+                  <table class="table table-zebra align-middle">
+                    <thead>
+                      <tr class="text-xs uppercase text-base-content/60">
+                        <th>Slot Jam & Ruang</th>
+                        <th>Pasien Anak</th>
+                        <th>Terapis & Layanan</th>
+                        <th>Status Sesi</th>
+                        <th class="text-right">Aksi Operasional</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template
+                        x-for="item in filteredSchedules"
+                        :key="item.id"
+                      >
+                        <tr>
+                          <!-- Slot Jam & Ruangan -->
+                          <td>
+                            <div
+                              class="font-bold text-xs flex items-center gap-1.5"
+                            >
+                              <i
+                                data-lucide="clock"
+                                class="w-3.5 h-3.5 text-primary"
+                              ></i>
+                              <span x-text="item.timeSlot"></span>
+                            </div>
+                            <div
+                              class="text-xs text-base-content/60 mt-0.5"
+                              x-text="item.room"
+                            ></div>
+                          </td>
+
+                          <!-- Nama Anak & Sisa Kuota -->
+                          <td>
+                            <div
+                              class="font-bold text-sm"
+                              x-text="item.patientName"
+                            ></div>
+                            <div class="text-xs text-base-content/60">
+                              Kuota Paket:
+                              <strong
+                                x-text="item.remainingQuota + '/' + item.totalQuota"
+                              ></strong>
+                            </div>
+                          </td>
+
+                          <!-- Layanan & Terapis -->
+                          <td>
+                            <span
+                              class="badge badge-xs font-medium py-2 mb-1"
+                              :class="item.serviceMeta.badgeClass"
+                              x-text="item.serviceMeta.name"
+                            ></span>
+                            <div
+                              class="text-xs font-medium text-base-content/80"
+                              x-text="item.therapistName"
+                            ></div>
+                          </td>
+
+                          <!-- Status Sesi -->
+                          <td>
+                            <span
+                              class="badge badge-sm font-medium"
+                              :class="item.statusMeta.badgeClass"
+                              x-text="item.statusMeta.label"
+                            ></span>
+                          </td>
+
+                          <!-- Tombol Check-In / Batalkan -->
+                          <td class="text-right">
+                            <div class="flex items-center justify-end gap-1.5">
+                              <template x-if="item.status === 'SCHEDULED'">
+                                <div class="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    @click="$store.clinic.checkInPatient(item.id)"
+                                    class="btn btn-primary btn-xs"
+                                  >
+                                    Check-In
+                                  </button>
+                                  <button
+                                    type="button"
+                                    @click="$store.clinic.cancelSchedule(item.id)"
+                                    title="Batalkan / Izin (Bebaskan Ruangan & Terapis)"
+                                    class="btn btn-ghost btn-xs text-error"
+                                  >
+                                    Batal
+                                  </button>
+                                </div>
+                              </template>
+                              <template x-if="item.status !== 'SCHEDULED'">
+                                <span
+                                  class="text-xs text-base-content/40 italic"
+                                  >Terkunci</span
+                                >
+                              </template>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+
+                      <template x-if="filteredSchedules.length === 0">
+                        <tr>
+                          <td
+                            colspan="5"
+                            class="text-center py-10 text-base-content/50"
+                          >
+                            <p class="font-semibold text-sm">
+                              Belum ada jadwal sesi pada tanggal/filter ini
+                            </p>
+                            <p class="text-xs mt-1">
+                              Klik tombol "Jadwalkan Sesi Baru" di kanan atas
+                              untuk menambahkan jadwal.
+                            </p>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kolom Kanan (1/3): Matriks Ketersediaan Terapis (Anti-Bentrok Radar) -->
+            <div
+              class="card bg-base-100 border border-base-300 shadow-sm h-fit"
+            >
+              <div class="card-body p-5 space-y-4">
+                <div class="pb-3 border-b border-base-200">
+                  <h3 class="font-bold text-base flex items-center gap-2">
+                    <i
+                      data-lucide="shield-check"
+                      class="w-4 h-4 text-primary"
+                    ></i>
+                    Radar Okupansi Terapis
+                  </h3>
+                  <p class="text-xs text-base-content/60 mt-0.5">
+                    Status ketersediaan slot jam pada tanggal
+                    <strong x-text="selectedDate"></strong>:
+                  </p>
+                </div>
+
+                <!-- Daftar Terapis & Indikator Slot Jam -->
+                <div class="space-y-4">
+                  <template
+                    x-for="therapist in $store.clinic.therapists"
+                    :key="therapist.id"
+                  >
+                    <div
+                      class="p-3 rounded-xl bg-base-200/60 border border-base-300 space-y-2"
+                    >
+                      <div class="flex items-center justify-between">
+                        <span
+                          class="font-bold text-xs"
+                          x-text="therapist.name"
+                        ></span>
+                        <span
+                          class="badge badge-ghost badge-xs font-mono"
+                          x-text="therapist.specialty"
+                        ></span>
+                      </div>
+
+                      <!-- Grid 5 Slot Jam -->
+                      <div class="flex flex-wrap gap-1.5">
+                        <template
+                          x-for="slot in $store.clinic.timeSlots"
+                          :key="slot"
+                        >
+                          <span
+                            class="badge badge-xs py-2 px-2 font-mono text-[10px]"
+                            :class="isTherapistBusy(therapist.id, slot) 
+                                                              ? 'badge-error text-error-content font-bold' 
+                                                              : 'badge-success badge-outline'"
+                            :title="isTherapistBusy(therapist.id, slot) ? 'Terisi / Sibuk' : 'Tersedia'"
+                            x-text="slot.split(' - ')[0]"
+                          >
+                          </span>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Legenda Warna Slot -->
+                <div
+                  class="flex items-center justify-between text-[11px] text-base-content/60 pt-2 border-t border-base-200"
+                >
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-success"></span>
+                    Tersedia (Kosong)
+                  </span>
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-error"></span>
+                    Terisi (Bentrok)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <!-- Sidebar Drawer (Aktif di menu 'schedules') -->
+      <div class="drawer-side z-30">
+        <label
+          for="admin-drawer"
+          aria-label="close sidebar"
+          class="drawer-overlay"
+        ></label>
+        <div id="app-sidebar" data-active="schedules"></div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL PENJADWALAN SESI BARU (DENGAN VALIDASI ANTI-BENTROK REAL-TIME)
+         ===================================================================== -->
+    <div class="modal" :class="{ 'modal-open': isBookingModalOpen }" x-cloak>
+      <div class="modal-box max-w-xl border border-base-300">
+        <div
+          class="flex items-center justify-between pb-3 border-b border-base-200"
+        >
+          <div>
+            <h3 class="font-bold text-lg">Jadwalkan Sesi Terapi Anak</h3>
+            <p class="text-xs text-base-content/60">
+              Sistem otomatis memvalidasi ketersediaan terapis, ruangan, dan
+              kuota paket.
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="isBookingModalOpen = false"
+            class="btn btn-sm btn-circle btn-ghost"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form @submit.prevent="submitBooking()" class="space-y-4 mt-4">
+          <!-- Peringatan Bentrok Jadwal Real-Time -->
+          <div
+            x-show="liveConflict.hasConflict"
+            x-transition
+            class="alert alert-error shadow-sm py-2.5 px-3.5 text-xs flex items-start gap-2"
+          >
+            <i data-lucide="alert-octagon" class="w-4 h-4 shrink-0 mt-0.5"></i>
+            <div>
+              <div class="font-bold">Terdeteksi Bentrok Jadwal!</div>
+              <div x-text="liveConflict.message"></div>
+            </div>
+          </div>
+
+          <!-- Baris 1: Tanggal & Slot Jam -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Tanggal Sesi *</span
+                ></label
+              >
+              <input
+                type="date"
+                x-model="form.date"
+                required
+                class="input input-bordered input-sm"
+              />
+            </div>
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Slot Jam Operasional *</span
+                ></label
+              >
+              <select
+                x-model="form.timeSlot"
+                class="select select-bordered select-sm"
+              >
+                <template x-for="slot in $store.clinic.timeSlots" :key="slot">
+                  <option :value="slot" x-text="slot + ' WIB'"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <!-- Baris 2: Pilih Pasien & Paket Kuota Aktif -->
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-base-200"
+          >
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Pilih Pasien Anak *</span
+                ></label
+              >
+              <select
+                x-model="form.patientId"
+                @change="onPatientChange()"
+                class="select select-bordered select-sm"
+              >
+                <template x-for="p in $store.clinic.patients" :key="p.id">
+                  <option
+                    :value="p.id"
+                    x-text="p.fullName + ' (' + p.nickname + ')'"
+                  ></option>
+                </template>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Gunakan Paket Kuota Aktif *</span
+                ></label
+              >
+              <select
+                x-model="form.packageId"
+                @change="onPackageChange()"
+                required
+                class="select select-bordered select-sm"
+              >
+                <template x-for="pkg in patientActivePackages" :key="pkg.id">
+                  <option
+                    :value="pkg.id"
+                    x-text="pkg.serviceMeta.shortName + ' (Sisa ' + pkg.remainingQuota + ' sesi)'"
+                  ></option>
+                </template>
+                <template x-if="patientActivePackages.length === 0">
+                  <option value="" disabled>
+                    -- Tidak ada kuota aktif (Wajib Top-Up) --
+                  </option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <!-- Baris 3: Pilih Terapis & Ruangan -->
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-base-200"
+          >
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Alokasi Terapis *</span
+                ></label
+              >
+              <select
+                x-model="form.therapistId"
+                class="select select-bordered select-sm"
+              >
+                <template x-for="t in $store.clinic.therapists" :key="t.id">
+                  <option
+                    :value="t.id"
+                    x-text="t.name + ' (' + t.specialty + ')'"
+                  ></option>
+                </template>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1"
+                ><span class="label-text text-xs font-semibold"
+                  >Alokasi Ruangan Klinik *</span
+                ></label
+              >
+              <select
+                x-model="form.room"
+                class="select select-bordered select-sm"
+              >
+                <template x-for="r in $store.clinic.clinicRooms" :key="r.id">
+                  <option :value="r.name" x-text="r.name"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-action pt-3">
+            <button
+              type="button"
+              @click="isBookingModalOpen = false"
+              class="btn btn-ghost btn-sm"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              :disabled="liveConflict.hasConflict || patientActivePackages.length === 0"
+              class="btn btn-primary btn-sm"
+            >
+              Simpan Jadwal Sesi
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

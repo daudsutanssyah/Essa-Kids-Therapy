@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="id" data-theme="emerald">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Form & Riwayat Evaluasi Sesi — ESSA Kids Therapy</title>
+
+    <!-- 1. Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 2. DaisyUI & Tailwind CSS CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3. Konfigurasi Tailwind & Custom CSS -->
+    <script src="../../assets/js/config/tailwind.config.js"></script>
+    <link rel="stylesheet" href="../../assets/css/custom.css" />
+
+    <!-- 4. Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 5. App Bootstrapper (ES Module) -->
+    <script type="module" src="../../assets/js/app.js"></script>
+
+    <!-- 6. Alpine.js CDN -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"
+    ></script>
+  </head>
+  <body
+    class="bg-base-200 font-sans text-base-content antialiased min-h-screen"
+    x-data="{
+      selectedScheduleId: '',
+      form: {
+        moodRating: 'Kooperatif & Ceria',
+        activitySummary: '',
+        progressNotes: '',
+        homeRecommendation: ''
+      },
+      init() {
+        // 1. Cek parameter ?scheduleId dari URL jika ada
+        const params = new URLSearchParams(window.location.search);
+        const urlScheduleId = params.get('scheduleId');
+
+        if (urlScheduleId) {
+          const target = $store.clinic.enrichedSchedules.find(s => s.id === urlScheduleId);
+          if (target) {
+            $store.clinic.setActiveTherapist(target.therapistId);
+            this.selectedScheduleId = urlScheduleId;
+            this.loadExistingEvaluation();
+            this.$nextTick(() => window.refreshIcons());
+            return;
+          }
+        }
+
+        // 2. Default ke sesi pertama milik terapis aktif saat ini
+        if ($store.clinic.therapistSchedules.length > 0) {
+          this.selectedScheduleId = $store.clinic.therapistSchedules[0].id;
+          this.loadExistingEvaluation();
+          this.$nextTick(() => window.refreshIcons());
+        }
+      },
+      get activeSession() {
+        return $store.clinic.enrichedSchedules.find(s => s.id === this.selectedScheduleId) || null;
+      },
+      get activePatient() {
+        if (!this.activeSession) return null;
+        return $store.clinic.enrichedPatients.find(p => p.id === this.activeSession.patientId) || null;
+      },
+      get pastEvaluations() {
+        if (!this.activePatient) return [];
+        return (this.activePatient.evaluations || []).filter(e => e.scheduleId !== this.selectedScheduleId);
+      },
+      onScheduleChange() {
+        this.loadExistingEvaluation();
+        this.$nextTick(() => window.refreshIcons());
+      },
+      loadExistingEvaluation() {
+        const session = this.activeSession;
+        if (session && session.evaluationData) {
+          this.form.moodRating = session.evaluationData.moodRating || 'Kooperatif & Ceria';
+          this.form.activitySummary = session.evaluationData.activitySummary || '';
+          this.form.progressNotes = session.evaluationData.progressNotes || '';
+          this.form.homeRecommendation = session.evaluationData.homeRecommendation || '';
+        } else {
+          this.form.moodRating = 'Kooperatif & Ceria';
+          this.form.activitySummary = '';
+          this.form.progressNotes = '';
+          this.form.homeRecommendation = '';
+        }
+      },
+      saveForm() {
+        if (!this.selectedScheduleId) {
+          $store.ui.showToast('Pilih jadwal sesi pasien terlebih dahulu.', 'error');
+          return;
+        }
+        const ok = $store.clinic.submitEvaluation({
+          scheduleId: this.selectedScheduleId,
+          ...this.form
+        });
+        if (ok) {
+          setTimeout(() => {
+            window.location.href = './daily-schedule.html';
+          }, 1000);
+        }
+      }
+    }"
+  >
+    <!-- Toast Notification Mengambang -->
+    <div
+      class="toast toast-top toast-end z-50"
+      x-cloak
+      x-show="$store.ui.toastMessage"
+      x-transition
+    >
+      <div
+        class="alert shadow-lg text-sm font-medium"
+        :class="$store.ui.toastType === 'error' ? 'alert-error' : 'alert-success'"
+      >
+        <span x-text="$store.ui.toastMessage"></span>
+      </div>
+    </div>
+
+    <!-- Struktur Responsive Drawer DaisyUI (Desktop Fixed Sidebar + Mobile Slide Drawer) -->
+    <div class="drawer lg:drawer-open">
+      <input id="therapist-drawer" type="checkbox" class="drawer-toggle" />
+
+      <!-- Area Konten Utama -->
+      <div class="drawer-content flex flex-col min-h-screen">
+        <!-- Top Navbar Modular (Inject oleh app.js) -->
+        <div
+          id="app-navbar"
+          data-title="Form & Riwayat Evaluasi"
+          data-role="therapist"
+          data-drawer="therapist-drawer"
+        ></div>
+
+        <!-- Konten Halaman: 2-Column Split View di Desktop -->
+        <main class="p-4 lg:p-8 space-y-6 flex-1">
+          <!-- Header Ringkas Breadcrumb & Info Sesi -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="text-xs text-base-content/60 flex items-center gap-1.5 mb-1">
+                <a href="./daily-schedule.html" class="link link-hover">Jadwal Harian</a>
+                <span>/</span>
+                <span class="text-base-content font-medium">Catatan Evaluasi Sesi</span>
+              </div>
+              <h2 class="text-xl font-bold tracking-tight">Evaluasi Perkembangan Sesi Anak</h2>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <a href="./daily-schedule.html" class="btn btn-outline btn-sm gap-1.5">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                <span>Kembali ke Jadwal</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- GRID 2 KOLOM: Split View Desktop (Kiri 1/3, Kanan 2/3) -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            
+            <!-- ========================================== -->
+            <!-- KOLOM KIRI (1/3 Lebar di Desktop, Atas di HP) -->
+            <!-- ========================================== -->
+            <div class="space-y-5">
+              
+              <!-- 1. Card Pemilih Sesi Pasien -->
+              <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4 sm:p-5 space-y-3">
+                  <div class="flex items-center justify-between border-b border-base-200 pb-2">
+                    <label class="font-bold text-xs uppercase tracking-wider text-base-content/70 flex items-center gap-1.5">
+                      <i data-lucide="calendar" class="w-3.5 h-3.5 text-primary"></i>
+                      <span>Pilih Sesi Pasien Anak</span>
+                    </label>
+                    <span class="badge badge-xs badge-ghost" x-text="$store.clinic.therapistSchedules.length + ' Sesi Hari Ini'"></span>
+                  </div>
+
+                  <select
+                    x-model="selectedScheduleId"
+                    @change="onScheduleChange()"
+                    class="select select-bordered select-sm w-full font-semibold text-xs rounded-xl"
+                  >
+                    <template x-for="s in $store.clinic.therapistSchedules" :key="s.id">
+                      <option
+                        :value="s.id"
+                        x-text="s.timeSlot + ' — ' + s.patientName + ' (' + s.statusMeta.label + ')'"
+                      ></option>
+                    </template>
+                  </select>
+
+                  <template x-if="$store.clinic.therapistSchedules.length === 0">
+                    <div class="text-xs text-warning bg-warning/10 p-2.5 rounded-xl border border-warning/20">
+                      Tidak ada jadwal sesi untuk terapis ini hari ini. Gunakan switcher simulasi akun di navbar atas.
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- 2. Card Informasi Profil Pasien Anak yang Sedang Dipilih -->
+              <template x-if="activeSession">
+                <div class="card bg-base-100 border border-base-300 shadow-sm overflow-hidden">
+                  <div class="bg-primary/10 px-5 py-3 border-b border-base-300 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <i data-lucide="user" class="w-4 h-4 text-primary"></i>
+                      <span class="font-bold text-xs uppercase tracking-wider text-primary">Detail Profil Pasien</span>
+                    </div>
+                    <span
+                      class="badge badge-sm font-semibold whitespace-nowrap"
+                      :class="activeSession.statusMeta.badgeClass"
+                      x-text="activeSession.statusMeta.label"
+                    ></span>
+                  </div>
+
+                  <div class="card-body p-5 space-y-4">
+                    <!-- Nama Anak, Usia & Wali -->
+                    <div>
+                      <div class="flex items-start justify-between gap-2">
+                        <h3 class="font-bold text-base text-base-content" x-text="activeSession.patientName"></h3>
+                        <span class="badge badge-outline badge-sm shrink-0 whitespace-nowrap" x-text="activeSession.patientAge"></span>
+                      </div>
+                      <p class="text-xs text-base-content/60 mt-0.5">
+                        Panggilan: <strong class="text-base-content" x-text="activeSession.patientNickname"></strong>
+                        • JK: <span x-text="activePatient?.gender === 'L' ? 'Laki-laki' : 'Perempuan'"></span>
+                      </p>
+                    </div>
+
+                    <!-- Detail Kontak & Layanan -->
+                    <div class="space-y-2 text-xs pt-1 border-t border-base-200">
+                      <div class="flex items-center justify-between">
+                        <span class="text-base-content/60">Orang Tua / Wali:</span>
+                        <span class="font-medium text-base-content" x-text="activeSession.parentName"></span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-base-content/60">No. WhatsApp Wali:</span>
+                        <span class="font-medium text-base-content" x-text="activePatient?.parentPhone || '-'"></span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-base-content/60">Layanan Terapi:</span>
+                        <span
+                          class="badge badge-sm font-medium whitespace-nowrap"
+                          :class="activeSession.serviceMeta.badgeClass"
+                          x-text="activeSession.serviceMeta.name"
+                        ></span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-base-content/60">Waktu & Ruangan:</span>
+                        <span class="font-semibold text-base-content" x-text="activeSession.timeSlot + ' (' + activeSession.room + ')'"></span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-base-content/60">Sisa Kuota Paket:</span>
+                        <span class="font-bold text-sm" x-text="activeSession.remainingQuota + ' / ' + activeSession.totalQuota + ' sesi'"></span>
+                      </div>
+                    </div>
+
+                    <!-- Kotak Fokus Observasi / Diagnosa Awal -->
+                    <div class="p-3.5 rounded-xl bg-base-200/80 border border-base-300 text-xs space-y-1">
+                      <div class="font-semibold text-base-content/60 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                        <i data-lucide="clipboard-list" class="w-3.5 h-3.5 text-primary"></i>
+                        <span>Fokus Observasi / Diagnosa Awal:</span>
+                      </div>
+                      <p class="text-base-content/85 leading-relaxed" x-text="activeSession.diagnosisNotes"></p>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- 3. Card Riwayat Evaluasi Sesi Terdahulu Pasien Ini -->
+              <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-5 space-y-3">
+                  <div class="flex items-center justify-between border-b border-base-200 pb-2.5">
+                    <h4 class="font-bold text-xs uppercase tracking-wider text-base-content/70 flex items-center gap-1.5">
+                      <i data-lucide="history" class="w-3.5 h-3.5 text-secondary"></i>
+                      <span>Riwayat Sesi Terdahulu</span>
+                    </h4>
+                    <span class="badge badge-xs badge-ghost" x-text="pastEvaluations.length + ' Catatan'"></span>
+                  </div>
+
+                  <!-- Daftar Evaluasi Lampau -->
+                  <div class="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+                    <template x-for="ev in pastEvaluations" :key="ev.id">
+                      <div class="p-3 rounded-xl bg-base-200/60 border border-base-300 text-xs space-y-1.5">
+                        <div class="flex items-center justify-between">
+                          <span class="font-bold text-base-content" x-text="ev.formattedDate"></span>
+                          <span class="badge badge-outline badge-xs font-medium" x-text="ev.moodRating"></span>
+                        </div>
+                        <div class="text-[11px] text-base-content/60">
+                          Terapis: <span class="font-medium text-base-content/80" x-text="ev.therapistName"></span>
+                        </div>
+                        <p class="text-base-content/80 leading-relaxed text-[11px] line-clamp-2">
+                          <strong>Hasil:</strong> <span x-text="ev.progressNotes"></span>
+                        </p>
+                      </div>
+                    </template>
+
+                    <!-- State Kosong Riwayat -->
+                    <template x-if="pastEvaluations.length === 0">
+                      <div class="p-4 text-center text-xs text-base-content/50 italic bg-base-200/40 rounded-xl">
+                        Belum ada catatan evaluasi sesi terdahulu untuk pasien ini.
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- =========================================== -->
+            <!-- KOLOM KANAN (2/3 Lebar di Desktop, Bawah di HP) -->
+            <!-- =========================================== -->
+            <div class="lg:col-span-2">
+              <template x-if="activeSession">
+                <form
+                  @submit.prevent="saveForm()"
+                  class="card bg-base-100 border border-base-300 shadow-sm"
+                >
+                  <!-- Header Form -->
+                  <div class="p-5 sm:p-6 border-b border-base-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 class="text-lg font-bold text-base-content">
+                        Lembar Evaluasi Perkembangan Anak
+                      </h3>
+                      <p class="text-xs text-base-content/60 mt-0.5">
+                        Sesi: <span class="font-semibold text-base-content" x-text="activeSession.timeSlot"></span>
+                        • Pasien: <span class="font-semibold text-primary" x-text="activeSession.patientName"></span>
+                      </p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <template x-if="activeSession.status === 'COMPLETED'">
+                        <span class="badge badge-success badge-sm font-semibold whitespace-nowrap gap-1">
+                          <i data-lucide="check" class="w-3 h-3"></i>
+                          Evaluasi Tersimpan (Mode Edit)
+                        </span>
+                      </template>
+                      <template x-if="activeSession.status !== 'COMPLETED'">
+                        <span class="badge badge-primary badge-sm font-semibold whitespace-nowrap gap-1">
+                          <i data-lucide="pencil" class="w-3 h-3"></i>
+                          Pengisian Evaluasi Baru
+                        </span>
+                      </template>
+                    </div>
+                  </div>
+
+                  <div class="card-body p-5 sm:p-6 space-y-5">
+                    
+                    <!-- 1. Mood & Kesiapan Anak Selama Sesi -->
+                    <div class="form-control space-y-1.5">
+                      <label class="label p-0">
+                        <span class="label-text text-xs font-bold text-base-content uppercase tracking-wider flex items-center gap-1.5">
+                          <i data-lucide="smile" class="w-4 h-4 text-primary"></i>
+                          <span>1. Mood & Kesiapan Anak Selama Sesi *</span>
+                        </span>
+                      </label>
+                      <p class="text-[11px] text-base-content/60">
+                        Pilih kondisi emosional dan tingkat keterlibatan anak saat stimulasi terapi berlangsung:
+                      </p>
+
+                      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                        <template
+                          x-for="mood in [
+                            { label: 'Kooperatif & Ceria', icon: 'sparkles', activeClass: 'btn-success text-white' },
+                            { label: 'Perlu Adaptasi Awal', icon: 'hourglass', activeClass: 'btn-info text-white' },
+                            { label: 'Mudah Terdistraksi', icon: 'activity', activeClass: 'btn-warning text-white' },
+                            { label: 'Rewel / Tantrum', icon: 'alert-circle', activeClass: 'btn-error text-white' }
+                          ]"
+                          :key="mood.label"
+                        >
+                          <button
+                            type="button"
+                            @click="form.moodRating = mood.label; window.refreshIcons()"
+                            class="btn btn-sm h-auto py-2.5 px-3 normal-case font-medium flex items-center justify-start gap-2 border rounded-xl transition-all"
+                            :class="form.moodRating === mood.label ? mood.activeClass + ' shadow-sm' : 'btn-outline border-base-300 bg-base-100 hover:bg-base-200 text-base-content/80'"
+                          >
+                            <i :data-lucide="mood.icon" class="w-4 h-4 shrink-0"></i>
+                            <span class="text-xs text-left" x-text="mood.label"></span>
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+
+                    <!-- 2. Aktivitas & Materi Terapi yang Diberikan -->
+                    <div class="form-control space-y-1.5">
+                      <label class="label p-0">
+                        <span class="label-text text-xs font-bold text-base-content uppercase tracking-wider flex items-center gap-1.5">
+                          <i data-lucide="dumbbell" class="w-4 h-4 text-primary"></i>
+                          <span>2. Aktivitas & Materi Terapi yang Diberikan *</span>
+                        </span>
+                      </label>
+                      <p class="text-[11px] text-base-content/60">
+                        Jelaskan stimulasi sensorik/motorik/wicara, media, dan alat terapi yang digunakan hari ini:
+                      </p>
+                      <textarea
+                        x-model="form.activitySummary"
+                        required
+                        rows="3"
+                        placeholder="Contoh: Latihan keseimbangan berdiri satu kaki di atas balance board selama 10 detik & merangkak melewati terowongan sensorik..."
+                        class="textarea textarea-bordered text-xs leading-relaxed focus:textarea-primary rounded-xl"
+                      ></textarea>
+                    </div>
+
+                    <!-- 3. Catatan Perkembangan & Respons Anak -->
+                    <div class="form-control space-y-1.5">
+                      <label class="label p-0">
+                        <span class="label-text text-xs font-bold text-base-content uppercase tracking-wider flex items-center gap-1.5">
+                          <i data-lucide="trending-up" class="w-4 h-4 text-primary"></i>
+                          <span>3. Catatan Perkembangan & Respons Anak *</span>
+                        </span>
+                      </label>
+                      <p class="text-[11px] text-base-content/60">
+                        Catat capaian kemajuan spesifik, rentang atensi, kontak mata, maupun kendala perilaku:
+                      </p>
+                      <textarea
+                        x-model="form.progressNotes"
+                        required
+                        rows="3"
+                        placeholder="Contoh: Anak mampu mempertahankan keseimbangan selama 8 detik dengan bantuan minimal. Kontak mata bertahan selama 15 detik..."
+                        class="textarea textarea-bordered text-xs leading-relaxed focus:textarea-primary rounded-xl"
+                      ></textarea>
+                    </div>
+
+                    <!-- 4. PR / Rekomendasi Stimulasi di Rumah (Untuk Orang Tua) -->
+                    <div class="p-4 sm:p-5 rounded-2xl bg-success/5 border border-success/30 space-y-2">
+                      <label class="label p-0">
+                        <span class="label-text text-xs font-bold text-success uppercase tracking-wider flex items-center gap-1.5">
+                          <i data-lucide="home" class="w-4 h-4"></i>
+                          <span>4. PR / Rekomendasi Stimulasi di Rumah (Untuk Orang Tua) *</span>
+                        </span>
+                      </label>
+                      <p class="text-[11px] text-base-content/60">
+                        Rekomendasi latihan stimulasi praktis yang dapat dilakukan orang tua di rumah bersama anak:
+                      </p>
+                      <textarea
+                        x-model="form.homeRecommendation"
+                        required
+                        rows="3"
+                        placeholder="Contoh: Ajak anak berjalan di atas garis lurus lantai tanpa alas kaki 10 menit setiap pagi, dan latih meniup bola kapas di atas meja..."
+                        class="textarea textarea-bordered border-success/40 focus:border-success text-xs leading-relaxed rounded-xl bg-base-100"
+                      ></textarea>
+                    </div>
+
+                    <!-- 5. Tombol Aksi Form -->
+                    <div class="pt-4 border-t border-base-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <a
+                        href="./daily-schedule.html"
+                        class="btn btn-ghost btn-sm sm:btn-md gap-2 w-full sm:w-auto text-xs sm:text-sm order-2 sm:order-1 rounded-xl"
+                      >
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        <span>Batal / Kembali ke Jadwal</span>
+                      </a>
+
+                      <button
+                        type="submit"
+                        class="btn btn-primary btn-sm sm:btn-md gap-2 w-full sm:w-auto font-semibold shadow-sm order-1 sm:order-2 rounded-xl"
+                      >
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                        <span>Simpan Evaluasi & Selesaikan Sesi</span>
+                      </button>
+                    </div>
+
+                  </div>
+                </form>
+              </template>
+
+              <!-- State Kosong Jika Belum Ada Sesi yang Dipilih -->
+              <template x-if="!activeSession">
+                <div class="card bg-base-100 border border-base-300 p-12 text-center space-y-3">
+                  <div class="w-14 h-14 mx-auto rounded-2xl bg-base-200 text-base-content/40 flex items-center justify-center">
+                    <i data-lucide="clipboard-pen" class="w-7 h-7"></i>
+                  </div>
+                  <div class="font-bold text-base text-base-content">
+                    Belum Ada Sesi Pasien yang Dipilih
+                  </div>
+                  <p class="text-xs text-base-content/60 max-w-sm mx-auto">
+                    Pilih salah satu jadwal sesi pasien anak pada panel sebelah kiri untuk mulai mengisi atau meninjau lembar evaluasi perkembangan.
+                  </p>
+                </div>
+              </template>
+            </div>
+
+          </div>
+        </main>
+      </div>
+
+      <!-- Sidebar Drawer Modular (Inject oleh app.js) -->
+      <div class="drawer-side z-30">
+        <label for="therapist-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+        <div id="app-sidebar" data-active="evaluation" data-role="therapist"></div>
+      </div>
+    </div>
+  </body>
+</html>
