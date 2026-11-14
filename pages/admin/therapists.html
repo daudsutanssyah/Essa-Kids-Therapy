@@ -49,20 +49,43 @@
               specialty: 'SPEECH',
               phone: ''
           },
+          serviceMap: {
+              PHYSIO: { name: 'Physiotherapy', shortName: 'Fisioterapi', badgeClass: 'badge-info' },
+              SENSORY: { name: 'Sensory Integration', shortName: 'Sensori Integrasi', badgeClass: 'badge-secondary' },
+              SPEECH: { name: 'Speech Therapy', shortName: 'Terapi Wicara', badgeClass: 'badge-warning' },
+              OCCUPATIONAL: { name: 'Occupational Therapy', shortName: 'Terapi Okupasi', badgeClass: 'badge-success' }
+          },
           get filteredTherapists() {
-              const list = $store.clinic?.enrichedTherapists || [];
-              const query = (this.searchQuery || '').toLowerCase().trim();
-              return list.filter(t => {
-                  const name = (t.name || '').toLowerCase();
-                  const id = (t.id || '').toLowerCase();
-                  const phone = (t.phone || '').toLowerCase();
-                  const matchQuery = !query || name.includes(query) || id.includes(query) || phone.includes(query);
-                  const matchSpecialty = this.filterSpecialty === 'ALL' || t.specialty === this.filterSpecialty;
-                  return matchQuery && matchSpecialty;
-              });
+              const rawList = $store.clinic?.therapists || [];
+              const schedules = $store.clinic?.schedules || [];
+              const evaluations = $store.clinic?.evaluations || [];
+              const query = (this.searchQuery || '').toLowerCase();
+
+              return rawList
+                  .map(t => {
+                      const cleanName = (t.name || '').replace(/^Kak\s+/i, '');
+                      const initials = cleanName.split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || 'TR';
+                      const activeSessionsCount = schedules.filter(s => s.therapistId === t.id && (s.status === 'SCHEDULED' || s.status === 'CHECKED_IN')).length;
+                      const completedEvaluationsCount = evaluations.filter(e => e.therapistId === t.id).length;
+
+                      return {
+                          ...t,
+                          initials,
+                          serviceMeta: this.serviceMap[t.specialty] || { name: t.specialty, shortName: t.specialty, badgeClass: 'badge-ghost' },
+                          activeSessionsCount,
+                          completedEvaluationsCount
+                      };
+                  })
+                  .filter(t => {
+                      const matchQuery = (t.name || '').toLowerCase().includes(query) ||
+                                         (t.id || '').toLowerCase().includes(query) ||
+                                         (t.phone || '').toLowerCase().includes(query);
+                      const matchSpecialty = this.filterSpecialty === 'ALL' || t.specialty === this.filterSpecialty;
+                      return matchQuery && matchSpecialty;
+                  });
           },
           submitTherapist() {
-              const ok = $store.clinic?.registerTherapist ? $store.clinic.registerTherapist(this.form) : false;
+              const ok = $store.clinic.registerTherapist(this.form);
               if (ok) {
                   this.isRegisterModalOpen = false;
                   this.form = { name: '', specialty: 'SPEECH', phone: '' };
